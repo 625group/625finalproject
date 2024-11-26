@@ -78,7 +78,6 @@ summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
 
 summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
 
-summary(raw_subset)
 
 # Count Plots -------------------------------------------------------------
 #Geo Area Dict + Visualization
@@ -107,3 +106,6 @@ ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
 #   Hawaiian V - Vietnamese W - White X - 
 #   Unknown Z - Asian Indian
 
+
+
+#Change made here
