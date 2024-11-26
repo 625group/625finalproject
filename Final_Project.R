@@ -27,10 +27,7 @@ library(VSURF)
 library(foreach)
 library(doParallel)
 
-#setwd("Downloads")
-raw <- read.csv("Crime_Data_from_2010_to_2019_20241122.csv")
-
-
+raw <- read.csv("/Users/rpravin/Downloads/Crime_Data_from_2010_to_2019_20241122.csv")
 
 
 summary(raw)
@@ -61,12 +58,11 @@ summary_tables_top20 <- function(key_input,value_input) {
     key = names(dict),
     value = unname(dict)
   ) %>%
-    group_by(key, value) %>%
-    summarize(frequency = n(), .groups = "drop") %>%
+    dplyr::group_by(key, value) %>%
+    dplyr::summarize(frequency = n(), .groups = "drop") %>%
     arrange(desc(frequency))
   return(head(df,20))
 }
-
 
 
 summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
