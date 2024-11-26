@@ -13,7 +13,6 @@ library(e1071)
 library(rattle)
 library(dplyr)
 library(rpart)
-library(kknn)
 library(stats)
 library(factoextra)
 library(MASS)
@@ -108,4 +107,3 @@ ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
 
 
 
-#Change made here
