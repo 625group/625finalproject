@@ -211,13 +211,13 @@ subset1 <- raw_subset[,columns_to_subset]
 
 # Columns to Categorize: Crm.Cd, Mocodes, Premis.Cd, WeaponUsed.Cd ---------
 #15 categories for Crime
+summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
+
 #10 categories for Premis
+summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
+
 #10 categories for Weapon Used
-table(raw_subset$Mocodes)
-
-
-
-
+summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
 
 
 
