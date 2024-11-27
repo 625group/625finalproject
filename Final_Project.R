@@ -192,7 +192,7 @@ mo_dict_df <- data.frame(
 )
 
 Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
-
+Mo_top_categories[1:10]
 
 # Subsetting Columns needed -----------------------------------------------
 
