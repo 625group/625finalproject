@@ -111,6 +111,7 @@ raw_subset$time_occur_cat <- categories
 
 
 
+
 # Creating dictionaries to store descriptions of unique values and frequencies of each category -------------------------------------------------------
 
 summary_tables_top20 <- function(key_input,value_input) {
@@ -124,33 +125,65 @@ summary_tables_top20 <- function(key_input,value_input) {
     arrange(desc(frequency))
   df_name <- paste0(gsub(".*\\$", "",deparse(substitute(value_input))))  
   assign(df_name, df, envir = .GlobalEnv)
+  
+  #Frequency Counts
+  row_counts <- c(10,15, 20, 25, 50)
+  total_rows <- nrow(df)
+  
+  cat("Cumulative sums of frequencies for the top categories:\n")
+  for (n in row_counts) {
+      if (n <= total_rows) {
+          cat(paste0("Top ", n, " categories: ", sum(df$frequency[1:n]), "\n"))
+      } else {
+          cat(paste0("Top ", n, " categories: Not enough categories (only ", total_rows, " categories available).\n"))
+      }
+  }
+  
   return(head(df,20))
 }
 
+summary_tables_top20(raw_subset$AREA.NAME, raw_subset$AREA)
+
+
 
 summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
+summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.2)
+summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.3)
+summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.4)
+
+
 
 summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
 
 summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
 
-summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
 
 
 
-summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
-summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
-summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
-summary_tables_top20(raw_subset$Status.Desc,raw_subset$Status)
+# Weapons NA Recode -------------------------------------------------------
+#Creating new category None instead of NA for no weapon used
+raw_subset$Weapon.Used.Cd <- as.character(raw_subset$Weapon.Used.Cd)
+raw_subset$Weapon.Used.Cd[is.na(raw_subset$Weapon.Used.Cd) == T] <- "None"
 
 
 
 
 
-columns_to_subset <- c("Gender", "Poverty", "BMI_WHO", "Diabetes", "DirectChol", 
-                       "SleepHrsNight", "PhysActiveDays", "AlcoholDay", "AlcoholYear", "SmokeNow", "Age", "Race1")
 
-str(raw_subset)
+# Subsetting Columns needed -----------------------------------------------
+
+
+columns_to_subset <- c("AREA", "Rpt.Dist.No", "Part.1.2", "Crm.Cd", "Mocodes", 
+                       "Vict.Age", "Vict.Sex", "Vict.Descent", "Premis.Cd", 
+                       "Weapon.Used.Cd", "Status", "Crm.Cd.2", "Crm.Cd.3", "Crm.Cd.4", 
+                       "Legal_Action", "date_occur_report_difference", "time_occur_cat")
+
+subset1 <- raw_subset[,columns_to_subset]
+
+
+
+
+
 
 # Count Plots -------------------------------------------------------------
 #Geo Area Dict + Visualization
