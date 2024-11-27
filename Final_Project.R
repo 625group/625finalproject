@@ -26,6 +26,8 @@ library(tuneRanger)
 library(VSURF)
 library(foreach)
 library(doParallel)
+library(pdftools)
+
 
 raw <- read.csv("/Users/rpravin/Downloads/Crime_Data_from_2010_to_2019_20241122.csv")
 
@@ -142,16 +144,11 @@ summary_tables_top20 <- function(key_input,value_input) {
   return(head(df,20))
 }
 
+
+
 summary_tables_top20(raw_subset$AREA.NAME, raw_subset$AREA)
 
-
-
 summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
-summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.2)
-summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.3)
-summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd.4)
-
-
 
 summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
 
@@ -167,7 +164,34 @@ raw_subset$Weapon.Used.Cd[is.na(raw_subset$Weapon.Used.Cd) == T] <- "None"
 
 
 
+# Reading in Mocodes PDF --------------------------------------------------
 
+# Read text from the PDF
+pdf_text <- pdf_text("/Users/rpravin/Downloads/MO_CODES_Numerical_20191119 (1).pdf")
+
+# Split the text into lines
+lines <- unlist(strsplit(pdf_text, "\n"))
+head(lines,200)
+# Extract lines matching the pattern of MO codes
+mo_data <- grep("^\\s*\\d{4}\\s+.*", lines, value = TRUE)
+
+# Split each line into code and description
+mo_split <- strsplit(mo_data, " ", fixed = TRUE)
+
+# Separate codes and descriptions
+mo_codes <- sapply(mo_split, `[`, 1)
+mo_descriptions <- sapply(mo_split, function(x) paste(x[-1], collapse = " "))
+
+# Create the dictionary
+mo_dictionary <- setNames(mo_descriptions, mo_codes)
+
+mo_dict_df <- data.frame(
+    code = substr(mo_dictionary, 1, 6),                    
+    description = trimws(substr(mo_dictionary, 7, nchar(mo_dictionary))),  
+    stringsAsFactors = FALSE
+)
+
+Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
 
 
 # Subsetting Columns needed -----------------------------------------------
@@ -175,10 +199,23 @@ raw_subset$Weapon.Used.Cd[is.na(raw_subset$Weapon.Used.Cd) == T] <- "None"
 
 columns_to_subset <- c("AREA", "Rpt.Dist.No", "Part.1.2", "Crm.Cd", "Mocodes", 
                        "Vict.Age", "Vict.Sex", "Vict.Descent", "Premis.Cd", 
-                       "Weapon.Used.Cd", "Status", "Crm.Cd.2", "Crm.Cd.3", "Crm.Cd.4", 
-                       "Legal_Action", "date_occur_report_difference", "time_occur_cat")
+                       "Weapon.Used.Cd", "Status", "Legal_Action", 
+                       "date_occur_report_difference", "time_occur_cat")
 
 subset1 <- raw_subset[,columns_to_subset]
+
+
+
+
+
+
+# Columns to Categorize: Crm.Cd, Mocodes, Premis.Cd, WeaponUsed.Cd ---------
+#15 categories for Crime
+#10 categories for Premis
+#10 categories for Weapon Used
+table(raw_subset$Mocodes)
+
+
 
 
 
