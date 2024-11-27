@@ -27,10 +27,9 @@ library(VSURF)
 library(foreach)
 library(doParallel)
 library(pdftools)
-
+library(KMEANS.KNN)
 
 raw <- read.csv("/Users/rpravin/Downloads/Crime_Data_from_2010_to_2019_20241122.csv")
-
 
 summary(raw)
 
@@ -54,6 +53,7 @@ raw_subset$Vict.Descent <- as.factor(raw_subset$Vict.Descent)
 raw_subset$Status <- as.factor(raw_subset$Status)
 raw_subset$Status.Desc <- as.factor(raw_subset$Status.Desc)
 
+table(raw$Status.Desc)
 
 # Re-Coding Response:Status of Case ---------------------------------------
 
@@ -85,7 +85,7 @@ raw_subset$date_occur <- as.POSIXct(raw_subset$date_occur, format = "%m/%d/%Y %I
 raw_subset$date_occur <- as.Date(raw_subset$date_occur)
 
 #Creating New Column: Difference Between Report vs Occurence
-raw_subset$date_occur_report_difference <- as.numeric(difftime(raw_subset$date_report , 
+raw_subset$date_occur_report_difference <- as.numeric(difftime(raw_subset$date_report, 
                                                                raw_subset$date_occur, 
                                                                units = "days"))
 
@@ -220,8 +220,6 @@ summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
 summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
 
 
-
-
 # Count Plots -------------------------------------------------------------
 #Geo Area Dict + Visualization
 
@@ -248,6 +246,9 @@ ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
 #   Other P - Pacific Islander S - Samoan U - 
 #   Hawaiian V - Vietnamese W - White X - 
 #   Unknown Z - Asian Indian
+
+
+
 
 
 
