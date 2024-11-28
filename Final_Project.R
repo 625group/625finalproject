@@ -237,13 +237,38 @@ filtered_subset6 <- filtered_subset5[filtered_subset5$Vict.Age > 0,]
 filtered_subset7 <- filtered_subset6[filtered_subset6$Vict.Age <= 100, ]
 filtered_subset8 <- filtered_subset7[filtered_subset7$Vict.Sex == "F" | filtered_subset7$Vict.Sex == "M", ]
 
-#Identified and cleaning Null Race and "-" Race
-filtered_subset9 <- filtered_subset8[filtered_subset8$Vict.Descent != "-",]
+#Identified and cleaning Null Race and "-" Race entering Race
+filtered_subset9 <- filtered_subset8[filtered_subset8$Vict.Descent != "-", ]
+filtered_subset9$Vict.Descent.Description <- ifelse(
+    filtered_subset9$Vict.Descent == "A",
+    "Other Asian",ifelse(filtered_subset9$Vict.Descent == "B",
+    "Black", ifelse(filtered_subset9$Vict.Descent == "C",
+    "Chinese",ifelse(filtered_subset9$Vict.Descent == "D",
+    "Cambodian",ifelse(filtered_subset9$Vict.Descent == "F",
+     "Filipino",ifelse(filtered_subset9$Vict.Descent == "G",
+      "Guamanian",ifelse(filtered_subset9$Vict.Descent == "H",
+       "Hispanic/Latin/Mexican",
+       ifelse(filtered_subset9$Vict.Descent == "I",
+       "American Indian/Alaskan Native",
+       ifelse(filtered_subset9$Vict.Descent == "J","Japanese",
+        ifelse(filtered_subset9$Vict.Descent == "K","Korean",
+        ifelse(filtered_subset9$Vict.Descent == "L","Laotian",
+        ifelse(filtered_subset9$Vict.Descent == "O","Other",
+        ifelse(filtered_subset9$Vict.Descent == "P",
+        "Pacific Islander",
+        ifelse(filtered_subset9$Vict.Descent == "S","Samoan",
+        ifelse(filtered_subset9$Vict.Descent == "U",
+        "Hawaiian",ifelse(filtered_subset9$Vict.Descent == "V",
+        "Vietnamese",ifelse(filtered_subset9$Vict.Descent == "W",
+         "White",ifelse(filtered_subset9$Vict.Descent == "X",NA,
+         ifelse(filtered_subset9$Vict.Descent == "Z", "Asian Indian", NA)))))))))))))))))))
+
+filtered_subset10 <- filtered_subset9[, !(colnames(filtered_subset9) %in% "Vict.Descent")]
 
 #Omitting Nulls
-filtered_subset10 <- na.omit(filtered_subset9)
+filtered_subset11 <- na.omit(filtered_subset10)
 
-clean_data <- filtered_subset10
+clean_data <- filtered_subset11
 
 
 
@@ -256,15 +281,6 @@ ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
     theme_minimal()
 
 
-
-# Descent Code: A - Other Asian B - Black C - 
-#   Chinese D - Cambodian F - Filipino G - 
-#   Guamanian H - Hispanic/Latin/Mexican I - 
-#   American Indian/Alaskan Native J - 
-#   Japanese K - Korean L - Laotian O - 
-#   Other P - Pacific Islander S - Samoan U - 
-#   Hawaiian V - Vietnamese W - White X - 
-#   Unknown Z - Asian Indian
 
 
 
