@@ -164,36 +164,36 @@ raw_subset$Weapon.Used.Cd[is.na(raw_subset$Weapon.Used.Cd) == T] <- "None"
 
 
 
-# Reading in Mocodes PDF --------------------------------------------------
-
-# Read text from the PDF
-pdf_text <- pdf_text("/Users/rpravin/Downloads/MO_CODES_Numerical_20191119 (1).pdf")
-
-# Split the text into lines
-lines <- unlist(strsplit(pdf_text, "\n"))
-head(lines,200)
-# Extract lines matching the pattern of MO codes
-mo_data <- grep("^\\s*\\d{4}\\s+.*", lines, value = TRUE)
-
-# Split each line into code and description
-mo_split <- strsplit(mo_data, " ", fixed = TRUE)
-
-# Separate codes and descriptions
-mo_codes <- sapply(mo_split, `[`, 1)
-mo_descriptions <- sapply(mo_split, function(x) paste(x[-1], collapse = " "))
-
-# Create the dictionary
-mo_dictionary <- setNames(mo_descriptions, mo_codes)
-
-mo_dict_df <- data.frame(
-    code = substr(mo_dictionary, 1, 6),                    
-    description = trimws(substr(mo_dictionary, 7, nchar(mo_dictionary))),  
-    stringsAsFactors = FALSE
-)
-
-Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
-Mo_top_categories[1:10]
-
+# # Reading in Mocodes PDF --------------------------------------------------
+# 
+# # Read text from the PDF
+# pdf_text <- pdf_text("/Users/rpravin/Downloads/MO_CODES_Numerical_20191119 (1).pdf")
+# 
+# # Split the text into lines
+# lines <- unlist(strsplit(pdf_text, "\n"))
+# head(lines,200)
+# # Extract lines matching the pattern of MO codes
+# mo_data <- grep("^\\s*\\d{4}\\s+.*", lines, value = TRUE)
+# 
+# # Split each line into code and description
+# mo_split <- strsplit(mo_data, " ", fixed = TRUE)
+# 
+# # Separate codes and descriptions
+# mo_codes <- sapply(mo_split, `[`, 1)
+# mo_descriptions <- sapply(mo_split, function(x) paste(x[-1], collapse = " "))
+# 
+# # Create the dictionary
+# mo_dictionary <- setNames(mo_descriptions, mo_codes)
+# 
+# mo_dict_df <- data.frame(
+#     code = substr(mo_dictionary, 1, 6),                    
+#     description = trimws(substr(mo_dictionary, 7, nchar(mo_dictionary))),  
+#     stringsAsFactors = FALSE
+# )
+# 
+# Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
+# Mo_top_categories[1:10]
+# 
 # Subsetting Columns needed readying data for cleaning -----------------------------------------------
 
 
@@ -390,12 +390,226 @@ summary(clean_data)
 
 
 
-# Fitting Random Forest ---------------------------------------------------
 
+
+# Creating index for bootstraps -------------------------------------------
+
+# Randomly shuffling the data and dividing into train/test
+clean_data_indexes <- sample(2, nrow(clean_data), 
+                             replace = TRUE, prob = c(0.8,0.2))
+clean_data_train <- clean_data[clean_data_indexes==1,]
+clean_data_test <- clean_data[clean_data_indexes==2,]
+
+set.seed(123)
+
+# Generate indexes for 30 iterations
+clean_data_indexes_list <- replicate(31, sample(2, 
+                                                nrow(clean_data), 
+                                                replace = TRUE, 
+                                                prob = c(0.8, 0.2)), 
+                                     simplify = FALSE)
+
+clean_data_train_list <- lapply(clean_data_indexes_list, function(index) clean_data_train[index == 1, ])
+clean_data_testlist <- lapply(clean_data_indexes_list, function(index) clean_data_test[index == 2, ])
+
+
+# Parallel ------------------------------------------------------------
+unregister_dopar <- function() {
+    env <- foreach:::.foreachGlobals
+    rm(list=ls(name=env), pos=env)
+}
+unregister_dopar()
+
+#initializing parallel processing
+num_cores <- detectCores() - 2
+cl <- makePSOCKcluster(num_cores)
+registerDoParallel(cl)
+
+stopCluster(cl)
+unregister_dopar()
+
+
+
+# Fitting Random Forest ---------------------------------------------------
+rf_gridsearch_red <- caret::train(quality ~ .,
+                                  red_wine_rf_extra,
+                                  method = "rf", 
+                                  trControl = train_control, 
+                                  tuneGrid = tune_grid,
+                                  importance = TRUE)
+plot(rf_gridsearch_red)
+
+#Creating empty lists
+accuracy_vector_red <- numeric(length(1:30))
+conf_mat_list_red <- vector("list",length(1:30))
+variable_importance_list_red <- vector("list",length(1:30))
+
+tune_grid2 <- expand.grid(mtry = 2)  
+
+#initializing parallel processing
+num_cores <- detectCores() - 2
+cl <- makePSOCKcluster(num_cores)
+registerDoParallel(cl)
+
+
+results <- foreach (i = 1:length(oversampled_red_wine_train_list), 
+                    .packages = c("caret", "dplyr")) %dopar% {
+                        # Training the Random Forest model with 30 times
+                        rf_model_red <- caret::train(
+                            quality ~ .,
+                            data = oversampled_red_wine_train_list[[i]],
+                            method = "rf",
+                            tuneGrid = tune_grid2,
+                            importance = TRUE
+                        )
+                        
+                        #Confusion Matrix of final model predicting Grade A red wine
+                        predictions_red <- predict(rf_model_red, newdata = red_wine_test_list[[i]])
+                        confusion_mat <- confusionMatrix(predictions_red, red_wine_test_list[[i]]$quality)
+                        #conf_mat_list_red[[i]] <- confusion_mat
+                        
+                        accuracy_vector_red[i] <- confusion_mat$overall['Accuracy']
+                        
+                        var_importance <- varImp(rf_model_red, type = 2)  
+                        variable_importance_list_red[[i]] <- var_importance
+                        
+                        list(
+                            confusion_matrix = confusion_mat,
+                            accuracy = confusion_mat$overall['Accuracy'],
+                            variable_importance = var_importance
+                        )
+                    }
+stopCluster(cl)
+
+for (i in 1:length(results)) {
+    conf_mat_list_red[[i]] <- results[[i]]$confusion_matrix
+    accuracy_vector_red[i] <- results[[i]]$accuracy
+    variable_importance_list_red[[i]] <- results[[i]]$variable_importance
+}
+
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting Grade A red wine")
+
+mean_red2_vec  <- mean(accuracy_vector_red)
+
+#standard error
+std_error_red <- sd(accuracy_vector_red) / sqrt(length(accuracy_vector_red))
+
+#critical t value for 95% CI
+critical_value_red <- qt(0.975, df = length(accuracy_vector_red) - 1)
+
+#confidence interval
+lower_ci_red <- mean_red2_vec - (critical_value_red * std_error_red)
+upper_ci_red <- mean_red2_vec + (critical_value_red * std_error_red)
+
+# 95% CI
+cat("95% Confidence Interval Predicting Grade A Red Wine: [", lower_ci_red, ", ", upper_ci_red, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_red <- which.min(abs(accuracy_vector_red - mean_red2_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_red[closest_index_red])
+
+
+#Variable Importance Plot of model 
+plot(rf_gridsearch_red_importance, 
+     main = "Variable Importance Ranked by Gini Impurity")
 
 
 # Fitting XgBoost ---------------------------------------------------------
+library(xgboost)
+library(tidyverse)
+library(data.table)
+xgboost_columns10 <- c("falling21c", "twitches32c", "Age", "BMI", "appetite53c", "soreness15c","nap20c", "SF36_Pain",
+                       "fever64c", "night55c", "severe_or_negligable")
 
+Clean_SleepAggregate_xgboost <- Clean_SleepAggregate[, xgboost_columns, drop = FALSE ]
+
+
+mean.impute = function(x){
+    x = as.data.frame(x)
+    for (i in 1:ncol(x)){
+        x[which(x[,i]==-1),i] = NA
+    }
+    
+    x = x %>% mutate_all(~ifelse(is.na(.), mean(., na.rm = TRUE), .)) %>% as.data.table()
+    return(x)
+}
+
+median.impute = function(x){
+    x = as.data.frame(x)
+    for (i in 1:ncol(x)){
+        x[which(x[,i]==-1),i] = NA
+    }
+    
+    x = x %>% mutate_all(~ifelse(is.na(.), median(., na.rm = TRUE), .)) %>% as.data.table()
+    return(x)
+}
+
+Clean_SleepAggregate_xgboost_inputed <- Clean_SleepAggregate_xgboost
+
+
+Clean_SleepAggregate_xgboost_inputed[1:2] = mean.impute(Clean_SleepAggregate_xgboost_inputed[1:2])
+Clean_SleepAggregate_xgboost_inputed<- na.omit(Clean_SleepAggregate_xgboost_inputed)
+
+
+set.seed(643)
+parts = createDataPartition(Clean_SleepAggregate_xgboost_inputed$severe_or_negligable, p = .8, list = F)
+xgboost_training = Clean_SleepAggregate_xgboost_inputed[parts, ]
+xgboost_testing = Clean_SleepAggregate_xgboost_inputed[-parts, ]
+
+#oversampling_xgboost <- ovun.sample(severe_or_negligable~., data = xgboost_training, method = "over", N = 3200)$data
+#table(oversampling_xgboost$severe_or_negligable)
+
+training_x = data.matrix(xgboost_training[, -71])
+training_y = xgboost_training$severe_or_negligable
+
+testing_x = data.matrix(xgboost_testing[, -71])
+testing_y = xgboost_testing$severe_or_negligable
+
+xgboost_train = xgb.DMatrix(data = training_x, label = training_y)
+xgboost_test = xgb.DMatrix(data = testing_x, label = testing_y)
+
+xgboost_watchlist = list(train = xgboost_train, test = xgboost_test)
+
+xgboost_model = xgb.train(data = xgboost_train, max.depth= 6, watchlist = xgboost_watchlist, nrounds = 100,alpha=1,eta=0.2, 
+                          colsample_bytree=1,subsample=1,min_child_weight=1,lambda=0,gamma=0)
+
+xgboost_modeldf <- as.data.frame(xgboost_model$evaluation_log)
+min_row <- xgboost_modeldf[which.min(xgboost_modeldf$test_rmse),]
+low_iter <- min_row$iter
+
+xgboost_model_final = xgb.train(data = xgboost_train, max.depth = 6, nrounds = low_iter, 
+                                verbose = 0,alpha=1,lambda=0,gamma=0.1,eta=0.2)
+
+xgboost_pred_y <- predict(xgboost_model_final, xgboost_test)
+
+xgboost_threshold <- 0.18
+xgboost_pred_y <- ifelse(xgboost_pred_y >= xgboost_threshold, 1, 0)
+
+xgboost_pred_y <- factor(xgboost_pred_y, levels = c(0, 1))
+xgboost_testing$severe_or_negligable <- factor(xgboost_testing$severe_or_negligable, levels = c(0, 1))
+
+testing_predictions_xgboost <- confusionMatrix(xgboost_pred_y, xgboost_testing$severe_or_negligable)
+testing_predictions_xgboost
+
+
+evaluation_xgboost_model_actual <- data.frame(xgboost_testing$severe_or_negligable)
+evaluation_xgboost_model <- data.frame(actual = evaluation_xgboost_model_actual, predicted = xgboost_pred_y)
+evaluation_xgboost_model$xgboost_testing.severe_or_negligable <- as.numeric(evaluation_xgboost_model$xgboost_testing.severe_or_negligable)
+evaluation_xgboost_model$predicted <- as.numeric(evaluation_xgboost_model$predicted)
+xgboost_roc <- roc(evaluation_xgboost_model$xgboost_testing.severe_or_negligable, evaluation_xgboost_model$predicted)
+xgboost_roc_plot <- plot(xgboost_roc ,  main = "53 DSQ Composites + Age ROC Curve", print.auc = TRUE)
+xgboost_roc_plot
+
+
+importance_matrix = xgb.importance(colnames(xgboost_train), model = xgboost_model_final)
+importance_matrix
+xgb.plot.importance(importance_matrix[1:20,])
 
 
 # Fitting Naive Bayes -----------------------------------------------------
@@ -404,13 +618,60 @@ summary(clean_data)
 
 
 # Fitting Logistic Regression ---------------------------------------------
+combo_five_training_set <- MECFS_and_Controls_Training_Set[, cbind("falling21f", "falling21s","nap20f", "nap20s", "smells66f", "smells66s", "jointpain26f", "jointpain26s", "musclepain25f",  "musclepain25s", "SleepReversalThreshold")]
+combo_five_training_set <- data.frame(combo_five_training_set)
+combo_five_model <- glm(SleepReversalThreshold ~ falling21f + falling21s + nap20f + nap20s + smells66f + smells66s + jointpain26f + jointpain26s + musclepain25f + musclepain25s, data = combo_five_training_set, family = binomial)
+summary(combo_five_model)
+
+combo_five_testing_set <- MECFS_and_Controls_Testing_Set[, cbind("falling21f", "falling21s","nap20f", "nap20s", "smells66f", "smells66s", "jointpain26f", "jointpain26s", "musclepain25f",  "musclepain25s", "SleepReversalThreshold")]
+combo_five_testing_set <- data.frame(combo_five_testing_set)
+combo_five_testing_predictions <- predict(combo_five_model, newdata = combo_five_testing_set, type = "response")
+combo_five_binary_predictions <- ifelse(combo_five_testing_predictions > 0.165, 1, 0)
+combo_five_binary_predictions <- factor(combo_five_binary_predictions)
+combo_five_testing_set$SleepReversalThreshold <- factor(combo_five_testing_set$SleepReversalThreshold)
+combo_five_confusion_matrix <- confusionMatrix(combo_five_binary_predictions, combo_five_testing_set$SleepReversalThreshold)
+combo_five_confusion_matrix
+
+evaluation_combo_five_model_actual <- data.frame(MECFS_and_Controls_Testing_Set$SleepReversalThreshold)
+evaluation_combo_five_model <- data.frame(actual = evaluation_combo_five_model_actual, predicted = combo_five_testing_predictions)
+combo_five_roc <- roc(evaluation_combo_five_model$MECFS_and_Controls_Testing_Set.SleepReversalThreshold, evaluation_combo_five_model$predicted)
+combo_five_roc_plot <- plot(combo_five_roc ,  main = "ROC Curve", print.auc = TRUE)
+combo_five_roc_plot
+
 
 
 # Fitting KNN -------------------------------------------------------------
+knn_train <- randomforest_train
+knn_test <- randomforest_test
 
+library(caret)
+
+# Run algorithms using 10-fold cross validation
+trainControl <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+fit.knn <- caret::train(severe_or_negligable ~ ., data=knn_train, method="knn", metric=metric , trControl=trainControl)
+knn.k1 <- fit.knn$bestTune # keep this Initial k for testing with knn() function in next section
+print(fit.knn)
+plot(fit.knn)
+
+prediction <- predict(fit.knn, newdata = knn_test)
+cf <- confusionMatrix(prediction, knn_test$severe_or_negligable)
+print(cf)
+
+fit.knn.k1 <- class::knn(train=knn_train[,-16], test=knn_test[,-16], cl=knn_train$severe_or_negligable, k=knn.k1)
+
+cf <- confusionMatrix(knn_test$severe_or_negligable,fit.knn.k1)
+cf
 
 # Fitting SVM -------------------------------------------------------------
+#SVM
+grid <- expand.grid(C = 10^seq(-5,2,0.5))
 
+# Fit the model
+svm_grid <- train(type ~., data = wine, method = "svmLinear", 
+                  trControl = train_control, tuneGrid = grid)
+# View grid search result
+svm_grid
 
 
 
