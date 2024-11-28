@@ -246,6 +246,36 @@ filtered_subset10 <- na.omit(filtered_subset9)
 clean_data <- filtered_subset10
 
 
+
+# EDA: Count Plots for Categorical -------------------------------------------------------------
+
+
+ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
+    geom_bar(stat = "identity", position = "dodge", color = "black", fill = "skyblue") +
+    labs(title = "Count Plot", x = "Geographic Area", y = "Count") +
+    theme_minimal()
+
+
+
+# Descent Code: A - Other Asian B - Black C - 
+#   Chinese D - Cambodian F - Filipino G - 
+#   Guamanian H - Hispanic/Latin/Mexican I - 
+#   American Indian/Alaskan Native J - 
+#   Japanese K - Korean L - Laotian O - 
+#   Other P - Pacific Islander S - Samoan U - 
+#   Hawaiian V - Vietnamese W - White X - 
+#   Unknown Z - Asian Indian
+
+
+
+
+
+
+
+
+
+
+
 # Fitting Random Forest ---------------------------------------------------
 
 
@@ -267,35 +297,6 @@ clean_data <- filtered_subset10
 
 # Fitting SVM -------------------------------------------------------------
 
-
-
-
-# Count Plots -------------------------------------------------------------
-#Geo Area Dict + Visualization
-
-geo_area_dict <- setNames(raw_subset$AREA.NAME,raw_subset$AREA)
-geo_area_df <- data.frame(
-  key = names(geo_area_dict),
-  Geographic_Area = unname(geo_area_dict)
-) %>%
-  group_by(key, Geographic_Area) %>%
-  summarize(frequency = n(), .groups = "drop")
-
-ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
-  geom_bar(stat = "identity", position = "dodge", color = "black", fill = "skyblue") +
-  labs(title = "Count Plot", x = "Geographic Area", y = "Count") +
-  theme_minimal()
-
-
-
-# Descent Code: A - Other Asian B - Black C - 
-#   Chinese D - Cambodian F - Filipino G - 
-#   Guamanian H - Hispanic/Latin/Mexican I - 
-#   American Indian/Alaskan Native J - 
-#   Japanese K - Korean L - Laotian O - 
-#   Other P - Pacific Islander S - Samoan U - 
-#   Hawaiian V - Vietnamese W - White X - 
-#   Unknown Z - Asian Indian
 
 
 
