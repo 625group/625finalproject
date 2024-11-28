@@ -392,7 +392,9 @@ summary(clean_data)
 
 
 
-# Creating index for bootstraps -------------------------------------------
+# Subsetting bootstraps defining bootstrap function -------------------------------------------
+
+set.seed(123)
 
 # Randomly shuffling the data and dividing into train/test
 clean_data_indexes <- sample(2, nrow(clean_data), 
@@ -400,20 +402,20 @@ clean_data_indexes <- sample(2, nrow(clean_data),
 clean_data_train <- clean_data[clean_data_indexes==1,]
 clean_data_test <- clean_data[clean_data_indexes==2,]
 
-set.seed(123)
 
-# Generate indexes for 30 iterations
-clean_data_indexes_list <- replicate(31, sample(2, 
-                                                nrow(clean_data), 
-                                                replace = TRUE, 
-                                                prob = c(0.8, 0.2)), 
-                                     simplify = FALSE)
-
-clean_data_train_list <- lapply(clean_data_indexes_list, function(index) clean_data_train[index == 1, ])
-clean_data_testlist <- lapply(clean_data_indexes_list, function(index) clean_data_test[index == 2, ])
+#Subsetting Train into 31 datasets
+clean_data_train$Group <- sample(1:31, size = nrow(clean_data_train), replace = T)
+df_subsets_train <- split(clean_data_train, clean_data_train$Group)
 
 
-# Parallel ------------------------------------------------------------
+# Define oversampling function
+oversample_data <- function(data) {
+    return(ovun.sample(Legal_Action ~ ., data = data, p=0.5)$data)
+}
+
+
+
+# Intializing Parallel and Bootstrapping ------------------------------------------------------------
 unregister_dopar <- function() {
     env <- foreach:::.foreachGlobals
     rm(list=ls(name=env), pos=env)
@@ -425,8 +427,11 @@ num_cores <- detectCores() - 2
 cl <- makePSOCKcluster(num_cores)
 registerDoParallel(cl)
 
-stopCluster(cl)
-unregister_dopar()
+
+
+oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE")) %dopar% {
+    oversample_data(data)
+}
 
 
 
@@ -677,4 +682,6 @@ svm_grid
 
 
 
+stopCluster(cl)
+unregister_dopar()
 
