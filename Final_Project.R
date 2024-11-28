@@ -279,7 +279,7 @@ filtered_subset13 <- filtered_subset12[, !(colnames(filtered_subset12) %in% "Sta
 #Omitting Nulls
 filtered_subset14 <- na.omit(filtered_subset13)
 
-clean_data <- filtered_subset13
+clean_data <- filtered_subset14
 
 
 # EDA: Count Plots for Categorical -------------------------------------------------------------
@@ -354,9 +354,38 @@ ggplot(clean_data, aes(y = Vict.Age)) +
 # Victim Age histogram
 ggplot(clean_data, aes(x = Vict.Age)) +
     geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
-    labs(title = "Histogram", x = "Values", y = "Count") +
+    labs(title = "Histogram", x = "Victim Age", y = "Count") +
     theme_minimal()
 
+
+# Days Difference in Crime Occurence and Crime Reported boxplot
+ggplot(clean_data, aes(y = date_occur_report_difference)) +
+    geom_boxplot(fill = "steelblue") +
+    labs(title = "Boxplot of Days Difference in Crime Occurence and Crime Reported", 
+         y = "Days Difference in Crime Occurence and Crime Reported") +
+    theme_minimal()
+
+# Days Difference in Crime Occurrence and Crime Reported histogram
+ggplot(clean_data, aes(x = date_occur_report_difference)) +
+    geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
+    labs(title = "Histogram", x = "Days Difference in Crime Occurence and Crime Reported", y = "Count") +
+    theme_minimal()
+
+#EDA Reveals date_occur_report_difference should be categorized
+clean_data$date_occur_report_difference <- cut(clean_data$date_occur_report_difference,
+                             breaks = c(0, 30, 60, 90, 180, 365, Inf),
+                             labels = c("0-30", "31-60", "61-90", "91-180", "181-365", "365+"),
+                             right = FALSE)
+
+#Number of Crimes Per Days Difference in Crime Occurrence and Crime Reported Count Plot
+ggplot(clean_data, aes(x = date_occur_report_difference)) +
+    geom_bar(position = position_dodge(width = 0.4),color = "black", fill = "skyblue") +
+    theme_minimal() +    
+    labs(title = "Number of Crimes Per Days Difference in Crime Occurrence and Crime Reported Count Plot", 
+         x = "Days Difference in Crime Occurrence and Crime Reported", y = "Number of Crimes") 
+
+# EDA: Summary Stats ------------------------------------------------------
+summary(clean_data)
 
 
 
