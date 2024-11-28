@@ -264,19 +264,23 @@ filtered_subset9$Vict.Descent.Description <- ifelse(
          ifelse(filtered_subset9$Vict.Descent == "Z", "Asian Indian", NA)))))))))))))))))))
 
 filtered_subset10 <- filtered_subset9[, !(colnames(filtered_subset9) %in% "Vict.Descent")]
+filtered_subset10$Vict.Descent.Description <- as.factor(filtered_subset10$Vict.Descent.Description)
+
+#Only Including those with sex M or F
+filtered_subset11 <- filtered_subset10[filtered_subset10$Vict.Sex == "M" | filtered_subset10$Vict.Sex == "F",]
 
 #Omitting Nulls
-filtered_subset11 <- na.omit(filtered_subset10)
+filtered_subset12 <- na.omit(filtered_subset11)
 
-clean_data <- filtered_subset11
-
+clean_data <- filtered_subset12
 
 
 # EDA: Count Plots for Categorical -------------------------------------------------------------
 
+str(clean_data)
 
-ggplot(geo_area_df, aes(x = Geographic_Area, y = frequency)) +
-    geom_bar(stat = "identity", position = "dodge", color = "black", fill = "skyblue") +
+ggplot(clean_data, aes(x = AREA)) +
+    geom_bar(color = "black", fill = "skyblue") +
     labs(title = "Count Plot", x = "Geographic Area", y = "Count") +
     theme_minimal()
 
