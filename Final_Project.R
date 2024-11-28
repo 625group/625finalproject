@@ -269,28 +269,93 @@ filtered_subset10$Vict.Descent.Description <- as.factor(filtered_subset10$Vict.D
 #Only Including those with sex M or F
 filtered_subset11 <- filtered_subset10[filtered_subset10$Vict.Sex == "M" | filtered_subset10$Vict.Sex == "F",]
 
-#Omitting Nulls
-filtered_subset12 <- na.omit(filtered_subset11)
+#Removing Sub-Areas as redundant to Geopgraphic Areas
+filtered_subset12 <- filtered_subset11[, !(colnames(filtered_subset11) %in% "Rpt.Dist.No")]
 
-clean_data <- filtered_subset12
+#Removing Status as outcome coded into Legal Action
+filtered_subset13 <- filtered_subset12[, !(colnames(filtered_subset12) %in% "Status")]
+
+
+#Omitting Nulls
+filtered_subset14 <- na.omit(filtered_subset13)
+
+clean_data <- filtered_subset13
 
 
 # EDA: Count Plots for Categorical -------------------------------------------------------------
 
-str(clean_data)
-
+#Number of Crimes Per Geographic Area
 ggplot(clean_data, aes(x = AREA)) +
     geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Count Plot", x = "Geographic Area", y = "Count") +
+    labs(title = "Number of Crimes Per Geographic Area", x = "Geographic Area", y = "Number of Crimes") +
     theme_minimal()
 
 
+#Number of Crimes Per Part.1.2
+ggplot(clean_data, aes(x = Part.1.2)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Crime Classification", x = "Crime Classification", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per Crm.Cd
+ggplot(clean_data, aes(x = Crm.Cd)) +
+    geom_bar(position = position_dodge(width = 0.4),color = "black", fill = "skyblue") +
+    theme_minimal() +    
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    labs(title = "Number of Crimes Per Crime Code", x = "Crime Code", y = "Number of Crimes") 
+
+#Number of Crimes Per Vict.Sex
+ggplot(clean_data, aes(x = Vict.Sex)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per Premis.Cd
+ggplot(clean_data, aes(x = Premis.Cd)) +
+    geom_bar(position = position_dodge(width = 0.4),color = "black", fill = "skyblue") +
+    theme_minimal() +    
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    labs(title = "Number of Crimes Per Premise(Structure) Type", x = "Premise(Structure) Type", y = "Number of Crimes") 
+
+#Number of Crimes Per Weapon.Used.Cd
+ggplot(clean_data, aes(x = Weapon.Used.Cd)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Weapon Used", x = "Weapon Used", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per Case resolved or not
+ggplot(clean_data, aes(x = Legal_Action)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Case resolved or not", x = "Case resolved or not", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per time_occur_cat
+ggplot(clean_data, aes(x = time_occur_cat)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Time Range", x = "Time Range", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per Vict.Descent.Description
+ggplot(clean_data, aes(x = Vict.Descent.Description)) +
+    geom_bar(color = "black", fill = "skyblue") +  
+    theme_minimal() +    
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    labs(title = "Number of Crimes Per Victim Race/Ethnicity", x = "Victim Race/Ethnicity", y = "Number of Crimes") 
 
 
+# EDA: Box Plots/Histograms for Continuous -------------------------------------------------------------
 
+# Victim Age boxplot
+ggplot(clean_data, aes(y = Vict.Age)) +
+    geom_boxplot(fill = "steelblue") +
+    labs(title = "Boxplot of Victim Ages", y = "Age") +
+    theme_minimal()
 
-
-
+# Victim Age histogram
+ggplot(clean_data, aes(x = Vict.Age)) +
+    geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
+    labs(title = "Histogram", x = "Values", y = "Count") +
+    theme_minimal()
 
 
 
