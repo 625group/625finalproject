@@ -194,7 +194,7 @@ mo_dict_df <- data.frame(
 Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
 Mo_top_categories[1:10]
 
-# Subsetting Columns needed -----------------------------------------------
+# Subsetting Columns needed readying data for cleaning -----------------------------------------------
 
 
 columns_to_subset <- c("AREA", "Rpt.Dist.No", "Part.1.2", "Crm.Cd", "Mocodes", 
@@ -204,21 +204,46 @@ columns_to_subset <- c("AREA", "Rpt.Dist.No", "Part.1.2", "Crm.Cd", "Mocodes",
 
 subset1 <- raw_subset[,columns_to_subset]
 
+#Only including rows whose Crm.Cd is in top 50
+crime_top_50_string_vec <- Crm.Cd$key[1:50]
+filtered_subset2 <- subset1[subset1$Crm.Cd %in% crime_top_50_string_vec, ]
+
+
+#Only including rows whose crime took place in Premise in top 50
+premise_top_50_string_vec <- Premis.Cd$key[1:50]
+filtered_subset3 <- filtered_subset2[filtered_subset2$Premis.Cd %in% premise_top_50_string_vec, ]
+
+
+#Only including rows if weapon Used in top 10
+weapon_top_10_string_vec <- Weapon.Used.Cd$key[1:10]
+filtered_subset4 <- filtered_subset3[filtered_subset3$Weapon.Used.Cd %in% weapon_top_10_string_vec, ]
+
+#Dropping Mocodes
+filtered_subset5 <- filtered_subset4[, !(colnames(filtered_subset4) %in% "Mocodes")]
+
+#Changing Column types
+filtered_subset5$Rpt.Dist.No <- as.factor(filtered_subset5$Rpt.Dist.No)
+filtered_subset5$Crm.Cd <- as.factor(filtered_subset5$Crm.Cd)
+filtered_subset5$Premis.Cd <- as.factor(filtered_subset5$Premis.Cd)
+filtered_subset5$Weapon.Used.Cd <- as.factor(filtered_subset5$Weapon.Used.Cd)
+filtered_subset5$Legal_Action <- as.factor(filtered_subset5$Legal_Action)
+filtered_subset5$time_occur_cat <- as.factor(filtered_subset5$time_occur_cat)
 
 
 
+# Cleaning Data -----------------------------------------------------------
+#Identified and cleaning Negative Ages, one age of 118, and sex:X
+filtered_subset6 <- filtered_subset5[filtered_subset5$Vict.Age > 0,]
+filtered_subset7 <- filtered_subset6[filtered_subset6$Vict.Age <= 100, ]
+filtered_subset8 <- filtered_subset7[filtered_subset7$Vict.Sex == "F" | filtered_subset7$Vict.Sex == "M", ]
 
+#Identified and cleaning Null Race and "-" Race
+filtered_subset9 <- filtered_subset8[filtered_subset8$Vict.Descent != "-",]
 
-# Columns to Categorize: Crm.Cd, Mocodes, Premis.Cd, WeaponUsed.Cd ---------
-#15 categories for Crime
-summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
+#Omitting Nulls
+filtered_subset10 <- na.omit(filtered_subset9)
 
-#10 categories for Premis
-summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
-
-#10 categories for Weapon Used
-summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
-
+clean_data <- filtered_subset10
 
 # Count Plots -------------------------------------------------------------
 #Geo Area Dict + Visualization
