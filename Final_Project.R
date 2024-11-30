@@ -423,7 +423,7 @@ unregister_dopar <- function() {
 unregister_dopar()
 
 #initializing parallel processing
-num_cores <- detectCores() - 2
+num_cores <- detectCores() - 1
 cl <- makePSOCKcluster(num_cores)
 registerDoParallel(cl)
 
@@ -436,94 +436,117 @@ oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE"))
 
 
 # Fitting Random Forest ---------------------------------------------------
-rf_gridsearch_red <- caret::train(quality ~ .,
-                                  red_wine_rf_extra,
-                                  method = "rf", 
-                                  trControl = train_control, 
-                                  tuneGrid = tune_grid,
-                                  importance = TRUE)
-plot(rf_gridsearch_red)
+#Calling 31st dataset
+extra_clean_train <- oversampled_data_list[[31]]
+oversampled_data_list <- oversampled_data_list[-31]
+
+
+# Define the grid of hyper-parameters to tune
+tune_grid <- expand.grid(mtry = c(3,7,11))
+tr_control <- trainControl(
+    method = "cv",
+    number = 5, 
+    allowParallel = TRUE)
+
+rf_gridsearch <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                              data = extra_clean_train, 
+                              tuneGrid = tune_grid,
+                             method = "rf",
+                             trControl = tr_control,
+                              importance = TRUE,
+                             ntree = 100)
+
+rf_elbow <- plot(rf_gridsearch)
+rf_elbow
+
+
 
 #Creating empty lists
-accuracy_vector_red <- numeric(length(1:30))
-conf_mat_list_red <- vector("list",length(1:30))
-variable_importance_list_red <- vector("list",length(1:30))
-
-tune_grid2 <- expand.grid(mtry = 2)  
+accuracy_vector_rf <- vector("list",length(1:30))
+conf_mat_list_rf <- vector("list",length(1:30))
+variable_importance_list_rf <- vector("list",length(1:30))
 
 
+tune_grid2 <- expand.grid(mtry = 11)  
 
-results <- foreach (i = 1:length(oversampled_red_wine_train_list), 
+tr_control2 <- trainControl(
+    method = "none",
+    allowParallel = TRUE)
+
+results_rf <- foreach (i = 1:length(oversampled_data_list), 
                     .packages = c("caret", "dplyr")) %dopar% {
-                        # Training the Random Forest model with 30 times
-                        rf_model_red <- caret::train(
-                            quality ~ .,
-                            data = oversampled_red_wine_train_list[[i]],
+                        # Training the Random Forest model 30 times w/optimal parameters
+                        rf_model <- caret::train(
+                            Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                            data = oversampled_data_list[[i]],
                             method = "rf",
                             tuneGrid = tune_grid2,
+                            trControl = tr_control2,
                             importance = TRUE
                         )
                         
-                        #Confusion Matrix of final model predicting Grade A red wine
-                        predictions_red <- predict(rf_model_red, newdata = red_wine_test_list[[i]])
-                        confusion_mat <- confusionMatrix(predictions_red, red_wine_test_list[[i]]$quality)
-                        #conf_mat_list_red[[i]] <- confusion_mat
+                        #Confusion Matrix of final model predicting Resolved Case
+                        predictions_rf <- predict(rf_model, newdata = clean_data_testlist[[i]])
+                        confusion_mat_rf <- confusionMatrix(predictions_rf, clean_data_testlist[[i]]$Legal_Action)
+
+                        accuracy_vector_rf[i] <- confusion_mat_rf$overall['Accuracy']
                         
-                        accuracy_vector_red[i] <- confusion_mat$overall['Accuracy']
-                        
-                        var_importance <- varImp(rf_model_red, type = 2)  
-                        variable_importance_list_red[[i]] <- var_importance
+                        var_importance_rf <- varImp(rf_model, type = 2)  
+                        variable_importance_list_rf[[i]] <- var_importance_rf
                         
                         list(
-                            confusion_matrix = confusion_mat,
-                            accuracy = confusion_mat$overall['Accuracy'],
-                            variable_importance = var_importance
+                            confusion_matrix = confusion_mat_rf,
+                            accuracy = confusion_mat_rf$overall['Accuracy'],
+                            variable_importance = var_importance_rf
                         )
                     }
-stopCluster(cl)
 
-for (i in 1:length(results)) {
-    conf_mat_list_red[[i]] <- results[[i]]$confusion_matrix
-    accuracy_vector_red[i] <- results[[i]]$accuracy
-    variable_importance_list_red[[i]] <- results[[i]]$variable_importance
+foreach (i = 1:30) %dopar% {
+    conf_mat_list_rf[[i]] <- results_rf[[i]]$confusion_matrix
+    accuracy_vector_rf[i] <- results_rf[[i]]$accuracy
+    variable_importance_list_rf[[i]] <- results_rf[[i]]$variable_importance
 }
 
 
 cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting Grade A red wine")
+    predicting if case was resolved")
 
-mean_red2_vec  <- mean(accuracy_vector_red)
+mean_rf_vec  <- mean(accuracy_vector_rf)
 
 #standard error
-std_error_red <- sd(accuracy_vector_red) / sqrt(length(accuracy_vector_red))
+std_error_rf <- sd(accuracy_vector_rf) / sqrt(30)
 
 #critical t value for 95% CI
-critical_value_red <- qt(0.975, df = length(accuracy_vector_red) - 1)
+critical_value_red <- qt(0.975, df = 30 - 1)
 
 #confidence interval
-lower_ci_red <- mean_red2_vec - (critical_value_red * std_error_red)
-upper_ci_red <- mean_red2_vec + (critical_value_red * std_error_red)
+lower_ci_rf <- mean_rf_vec - (critical_value_rf * std_error_rf)
+upper_ci_rf <- mean_rf_vec + (critical_value_rf * std_error_rf)
 
 # 95% CI
-cat("95% Confidence Interval Predicting Grade A Red Wine: [", lower_ci_red, ", ", upper_ci_red, "]\n")
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_rf, ", ", upper_ci_rf, "]\n")
 
 
 #Finding Index of accuracy value closest to mean
-closest_index_red <- which.min(abs(accuracy_vector_red - mean_red2_vec))
+closest_index_rf <- which.min(abs(accuracy_vector_rf - mean_rf_vec))
 
 
 #Confusion Matrix of Model closest to mean accuracy
-print(conf_mat_list_red[closest_index_red])
+print(conf_mat_list_rf[closest_index_rf])
 
 
 #Variable Importance Plot of model 
-plot(rf_gridsearch_red_importance, 
+plot(varImp(rf_gridsearch, type = 2), 
      main = "Variable Importance Ranked by Gini Impurity")
 
 
 # Fitting Neural Net ---------------------------------------------------------
 
+
+
 # Fitting Naive Bayes -----------------------------------------------------
+library(ISLR)
+library(caret)
 
 
 
@@ -531,31 +554,85 @@ plot(rf_gridsearch_red_importance,
 # Fitting Logistic Regression ---------------------------------------------
 
 # Fitting KNN -------------------------------------------------------------
-knn_train <- randomforest_train
-knn_test <- randomforest_test
+tr_control_knn <- trainControl(method = "cv", number = 10)  # 5-fold cross-validation
 
-library(caret)
+# Train the kNN model with automatic tuning of k using tuneLength
+knn_model <- train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + 
+                       Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + 
+                       time_occur_cat + Vict.Descent.Description,
+                   data = extra_clean_train,
+                   method = "knn",
+                   trControl = tr_control_knn,
+                   tuneLength = 5)
 
-# Run algorithms using 10-fold cross validation
-trainControl <- trainControl(method="repeatedcv", number=10, repeats=3)
-metric <- "Accuracy"
-fit.knn <- caret::train(severe_or_negligable ~ ., data=knn_train, method="knn", metric=metric , trControl=trainControl)
-knn.k1 <- fit.knn$bestTune # keep this Initial k for testing with knn() function in next section
-print(fit.knn)
-plot(fit.knn)
+#Checking for optimal # of neighbors vs accuracy
+plot(knn_model, print.thres = 0.5, type="S")
 
-prediction <- predict(fit.knn, newdata = knn_test)
-cf <- confusionMatrix(prediction, knn_test$severe_or_negligable)
-print(cf)
 
-fit.knn.k1 <- class::knn(train=knn_train[,-16], test=knn_test[,-16], cl=knn_train$severe_or_negligable, k=knn.k1)
 
-cf <- confusionMatrix(knn_test$severe_or_negligable,fit.knn.k1)
-cf
+
+results_knn <- foreach (i = 1:30, 
+                       .packages = c("caret", "dplyr")) %dopar% {
+                           # Training the knn model 30 times w/optimal parameters
+                           
+                           #Confusion Matrix of final model predicting Grade A red wine
+                           predictions_knn <- predict(knn_model, newdata = clean_data_testlist[[i]])
+                           confusion_mat_knn <- confusionMatrix(predictions_knn, clean_data_testlist[[i]]$Legal_Action)
+
+                           accuracy_vector_knn[i] <- confusion_mat_knn$overall['Accuracy']
+                           
+                           var_importance_knn <- varImp(knn_model, type = 2)  
+                           variable_importance_list_knn[[i]] <- var_importance_knn
+                           
+                           list(
+                               confusion_matrix = confusion_mat_knn,
+                               accuracy = confusion_mat_knn$overall['Accuracy'],
+                               variable_importance = var_importance_knn
+                           )
+                       }
+
+foreach (i = 1:30) %dopar% {
+    confusion_mat_knn[[i]] <- results_knn[[i]]$confusion_matrix
+    accuracy_vector_knn[i] <- results_knn[[i]]$accuracy
+    variable_importance_list_knn[[i]] <- results_knn[[i]]$variable_importance
+}
+
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting if case was resolved")
+
+mean_knn_vec  <- mean(accuracy_vector_knn)
+
+#standard error
+std_error_knn <- sd(accuracy_vector_knn) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_knn <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_knn <- mean_knn_vec - (critical_value_knn * std_error_knn)
+upper_ci_knn <- mean_knn_vec + (critical_value_knn * std_error_knn)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_knn, ", ", upper_ci_knn, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_knn <- which.min(abs(accuracy_vector_knn - mean_knn_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_knn[closest_index_knn])
+
+
+
+
+
+
 
 # Fitting SVM -------------------------------------------------------------
 #SVM
-grid <- expand.grid(C = 10^seq(-5,2,0.5))
+svm_grid <- expand.grid(C = 10^seq(-5,2,0.5))
 
 # Fit the model
 svm_grid <- caret::train(type ~., data = wine, method = "svmLinear", 
