@@ -565,62 +565,55 @@ ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
 
 
 # Fitting Naive Bayes -----------------------------------------------------
-library(ISLR)
+library(klaR)
 library(caret)
-
 
 
 
 # Fitting Logistic Regression ---------------------------------------------
 
 # Fitting KNN -------------------------------------------------------------
-tr_control_knn <- trainControl(method = "cv", number = 10)  # 5-fold cross-validation
 
 # Train the kNN model with automatic tuning of k using tuneLength
-knn_model <- train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + 
-                       Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + 
-                       time_occur_cat + Vict.Descent.Description,
-                   data = extra_clean_train,
-                   method = "knn",
-                   trControl = tr_control_knn,
-                   tuneLength = 5)
+tr_control_knn <- trainControl(method = "repeatedcv", 
+                               repeats = 10,
+                               allowParallel = TRUE)  
 
-#Checking for optimal # of neighbors vs accuracy
-plot(knn_model, print.thres = 0.5, type="S")
-
-
+#Creating empty lists
+accuracy_vector_knn <- numeric(length(1:30))
+conf_mat_list_knn <- vector("list",length(1:30))
 
 
 results_knn <- foreach (i = 1:30, 
                        .packages = c("caret", "dplyr")) %dopar% {
-                           # Training the knn model 30 times w/optimal parameters
+                           # Training the Random Forest model 30 times w/optimal parameters
+                           knn_model <- caret::train(
+                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                               data = oversampled_data_list[[i]],
+                               method = "knn",
+                               trControl = tr_control_knn,
+                               tuneLength = 20)
                            
-                           #Confusion Matrix of final model predicting Grade A red wine
-                           predictions_knn <- predict(knn_model, newdata = clean_data_testlist[[i]])
-                           confusion_mat_knn <- confusionMatrix(predictions_knn, clean_data_testlist[[i]]$Legal_Action)
-
+                           #Confusion Matrix of final model predicting Resolved Case
+                           predictions_knn <- predict(knn_model, newdata = clean_data_test_list[[i]])
+                           confusion_mat_knn <- confusionMatrix(predictions_knn, clean_data_test_list[[i]]$Legal_Action)
+                           
                            accuracy_vector_knn[i] <- confusion_mat_knn$overall['Accuracy']
-                           
-                           var_importance_knn <- varImp(knn_model, type = 2)  
-                           variable_importance_list_knn[[i]] <- var_importance_knn
-                           
-                           list(
-                               confusion_matrix = confusion_mat_knn,
-                               accuracy = confusion_mat_knn$overall['Accuracy'],
-                               variable_importance = var_importance_knn
-                           )
+
+                           list(confusion_matrix = confusion_mat_knn,
+                                accuracy = confusion_mat_knn$overall['Accuracy']
+                                )
                        }
 
-foreach (i = 1:30) %dopar% {
-    confusion_mat_knn[[i]] <- results_knn[[i]]$confusion_matrix
+for (i in 1:length(results_knn)){
+    conf_mat_list_knn[[i]] <- results_knn[[i]]$confusion_matrix
     accuracy_vector_knn[i] <- results_knn[[i]]$accuracy
-    variable_importance_list_knn[[i]] <- results_knn[[i]]$variable_importance
 }
+accuracy_vector_knn <- unlist(accuracy_vector_knn)
 
 
 cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting if case was resolved")
-
+    predicting if case was resolved\n")
 mean_knn_vec  <- mean(accuracy_vector_knn)
 
 #standard error
@@ -645,12 +638,8 @@ closest_index_knn <- which.min(abs(accuracy_vector_knn - mean_knn_vec))
 print(conf_mat_list_knn[closest_index_knn])
 
 
-
-
-
-
-
 # Fitting SVM -------------------------------------------------------------
+
 #SVM
 svm_grid <- expand.grid(C = 10^seq(-5,2,0.5))
 
