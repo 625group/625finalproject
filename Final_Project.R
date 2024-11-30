@@ -215,6 +215,7 @@ filtered_subset3 <- filtered_subset2[filtered_subset2$Premis.Cd %in% premise_top
 
 
 #Only including rows if weapon Used in top 10
+
 weapon_top_10_string_vec <- Weapon.Used.Cd$key[1:10]
 filtered_subset4 <- filtered_subset3[filtered_subset3$Weapon.Used.Cd %in% weapon_top_10_string_vec, ]
 
@@ -397,7 +398,10 @@ summary(clean_data)
 set.seed(123)
 
 # Randomly shuffling the data and dividing into train/test
-clean_data_indexes <- sample(2, nrow(clean_data), 
+clean_data <- clean_data[sample(nrow(clean_data)), ]
+
+
+clean_data_indexes <- sample(2, nrow(clean_data),
                              replace = TRUE, prob = c(0.8,0.2))
 clean_data_train <- clean_data[clean_data_indexes==1,]
 clean_data_test <- clean_data[clean_data_indexes==2,]
@@ -406,6 +410,12 @@ clean_data_test <- clean_data[clean_data_indexes==2,]
 #Subsetting Train into 31 datasets
 clean_data_train$Group <- sample(1:31, size = nrow(clean_data_train), replace = T)
 df_subsets_train <- split(clean_data_train, clean_data_train$Group)
+
+#Subsetting Test into 31 datasets
+clean_data_test$Group <- sample(1:31, size = nrow(clean_data_test), replace = T)
+clean_data_test_list <- split(clean_data_test, clean_data_test$Group)
+
+
 
 
 # Define oversampling function
@@ -438,8 +448,7 @@ oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE"))
 # Fitting Random Forest ---------------------------------------------------
 #Calling 31st dataset
 extra_clean_train <- oversampled_data_list[[31]]
-oversampled_data_list <- oversampled_data_list[-31]
-
+extra_clean_train <- extra_clean_train[sample(nrow(extra_clean_train)),]
 
 # Define the grid of hyper-parameters to tune
 tune_grid <- expand.grid(mtry = c(3,7,11))
@@ -460,9 +469,8 @@ rf_elbow <- plot(rf_gridsearch)
 rf_elbow
 
 
-
 #Creating empty lists
-accuracy_vector_rf <- vector("list",length(1:30))
+accuracy_vector_rf <- numeric(length(1:30))
 conf_mat_list_rf <- vector("list",length(1:30))
 variable_importance_list_rf <- vector("list",length(1:30))
 
@@ -473,7 +481,7 @@ tr_control2 <- trainControl(
     method = "none",
     allowParallel = TRUE)
 
-results_rf <- foreach (i = 1:length(oversampled_data_list), 
+results_rf <- foreach (i = 1:30, 
                     .packages = c("caret", "dplyr")) %dopar% {
                         # Training the Random Forest model 30 times w/optimal parameters
                         rf_model <- caret::train(
@@ -486,8 +494,8 @@ results_rf <- foreach (i = 1:length(oversampled_data_list),
                         )
                         
                         #Confusion Matrix of final model predicting Resolved Case
-                        predictions_rf <- predict(rf_model, newdata = clean_data_testlist[[i]])
-                        confusion_mat_rf <- confusionMatrix(predictions_rf, clean_data_testlist[[i]]$Legal_Action)
+                        predictions_rf <- predict(rf_model, newdata = clean_data_test_list[[i]])
+                        confusion_mat_rf <- confusionMatrix(predictions_rf, clean_data_test_list[[i]]$Legal_Action)
 
                         accuracy_vector_rf[i] <- confusion_mat_rf$overall['Accuracy']
                         
@@ -501,23 +509,23 @@ results_rf <- foreach (i = 1:length(oversampled_data_list),
                         )
                     }
 
-foreach (i = 1:30) %dopar% {
+for (i in 1:length(results_rf)){
     conf_mat_list_rf[[i]] <- results_rf[[i]]$confusion_matrix
     accuracy_vector_rf[i] <- results_rf[[i]]$accuracy
     variable_importance_list_rf[[i]] <- results_rf[[i]]$variable_importance
+    
 }
-
+accuracy_vector_rf <- unlist(accuracy_vector_rf)
 
 cat("Creating 95% Confidence Interval for Accuracy of Model 
     predicting if case was resolved")
-
 mean_rf_vec  <- mean(accuracy_vector_rf)
 
 #standard error
 std_error_rf <- sd(accuracy_vector_rf) / sqrt(30)
 
 #critical t value for 95% CI
-critical_value_red <- qt(0.975, df = 30 - 1)
+critical_value_rf <- qt(0.975, df = 30 - 1)
 
 #confidence interval
 lower_ci_rf <- mean_rf_vec - (critical_value_rf * std_error_rf)
@@ -535,9 +543,21 @@ closest_index_rf <- which.min(abs(accuracy_vector_rf - mean_rf_vec))
 print(conf_mat_list_rf[closest_index_rf])
 
 
-#Variable Importance Plot of model 
-plot(varImp(rf_gridsearch, type = 2), 
-     main = "Variable Importance Ranked by Gini Impurity")
+#Variable top 20 Importance Plot of model 
+var_imp <- varImp(rf_gridsearch, type = 2)
+var_imp_df <- as.data.frame(var_imp$importance)
+var_imp_df$Variable <- rownames(var_imp_df)
+top_20_vars <- var_imp_df[order(-var_imp_df$Overall), ][1:20, ]
+
+ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    coord_flip() +
+    labs(
+        title = "Top 20 Variables Ranked by Gini Impurity",
+        x = "Variable",
+        y = "Importance"
+    ) +
+    theme_minimal()
 
 
 # Fitting Neural Net ---------------------------------------------------------
