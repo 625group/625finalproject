@@ -565,8 +565,106 @@ ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
 
 
 # Fitting Naive Bayes -----------------------------------------------------
-library(klaR)
-library(caret)
+library(naivebayes)
+extra_clean_train_nb <- extra_clean_train
+extra_clean_train_nb <- extra_clean_train_nb[,-12]
+
+nb_grid <- expand.grid(usekernel = c(TRUE, FALSE),
+                       laplace = c(0, 0.5, 1), 
+                       adjust = c(0.75, 1, 1.25, 1.5))
+
+tr_control_nb <- trainControl(
+    method = "repeatedcv",  
+    number = 10,            
+    repeats = 3,            
+    allowParallel = TRUE   
+)
+
+nb_fit <- caret::train(
+    Legal_Action ~ .,           
+    data = extra_clean_train_nb, 
+    method = "naive_bayes",               
+    trControl = tr_control_nb,
+    tuneGrid = nb_grid
+)
+
+#Checking model optimal parameters
+nb_fit$finalModel$tuneValue
+
+#Visualizing tuning process
+nb_fit_plot <- plot(nb_fit)
+nb_fit_plot
+
+# Performing classification 
+predictions_nb1 <- predict(nb_fit, newdata = clean_data_test_list[[31]])
+confusion_mat_nb1 <- confusionMatrix(predictions_nb1, clean_data_test_list[[31]]$Legal_Action)
+
+#Creating accuracy and confusion matrices vectors
+accuracy_vector_nb <- numeric(length(1:30))
+conf_mat_list_nb <- vector("list",length(1:30))
+
+results_nb <- foreach (i = 1:30, 
+                        .packages = c("caret", "dplyr", "naivebayes")) %dopar% {
+                            #Optimal Parameters
+                            laplace_param <- nb_fit$finalModel$tuneValue$laplace
+                            usekernel_param <- nb_fit$finalModel$tuneValue$usekernel
+                            adjust_param <- nb_fit$finalModel$tuneValue$adjust
+                            
+                            # Training the Naive Bayes model 30 times w/optimal parameters
+                            nb_model <- caret::train(
+                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                                data = oversampled_data_list[[i]],
+                                method = "naive_bayes",
+                                trControl = trainControl(method = "none"),
+                                tuneGrid = expand.grid(.laplace = laplace_param, .usekernel = usekernel_param, .adjust = adjust_param) 
+                            )
+                            
+                            #Confusion Matrix of final model predicting Resolved Case
+                            predictions_nb <- predict(nb_model, newdata = clean_data_test_list[[i]])
+                            confusion_mat_nb <- confusionMatrix(predictions_nb, clean_data_test_list[[i]]$Legal_Action)
+                            
+                            accuracy_vector_nb[i] <- confusion_mat_nb$overall['Accuracy']
+                            
+                            list(confusion_matrix = confusion_mat_nb,
+                                 accuracy = confusion_mat_nb$overall['Accuracy']
+                            )
+                        }
+
+for (i in 1:length(results_nb)){
+    conf_mat_list_nb[[i]] <- results_nb[[i]]$confusion_matrix
+    accuracy_vector_nb[i] <- results_nb[[i]]$accuracy
+}
+accuracy_vector_nb <- unlist(accuracy_vector_nb)
+
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting if case was resolved\n")
+mean_nb_vec  <- mean(accuracy_vector_nb)
+
+#standard error
+std_error_nb <- sd(accuracy_vector_nb) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_nb <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_nb <- mean_nb_vec - (critical_value_nb * std_error_nb)
+upper_ci_nb <- mean_nb_vec + (critical_value_nb * std_error_nb)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nb, ", ", upper_ci_nb, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_nb <- which.min(abs(accuracy_vector_nb - mean_nb_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_nb[closest_index_nb])
+
+
+
+
 
 
 
