@@ -439,14 +439,13 @@ cl <- makePSOCKcluster(num_cores)
 registerDoParallel(cl)
 
 
-
 oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE")) %dopar% {
     oversample_data(data)
 }
 
 
 
-# Fitting Random Forest ---------------------------------------------------
+# Random Forest ---------------------------------------------------
 #Calling 31st dataset
 extra_clean_train <- oversampled_data_list[[31]]
 extra_clean_train <- extra_clean_train[sample(nrow(extra_clean_train)),]
@@ -561,17 +560,119 @@ ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
     theme_minimal()
 
 
-# Fitting Neural Net ---------------------------------------------------------
+# Neural Net  ---------------------------------------------------------
 library(NeuralNetTools)
 library(nnet)
 library(NeuralSens)
-library(keras)
+
+
+###          ###
+###Neural Net###
+###          ###
 
 tr_control_nnet <- trainControl(
     method = "cv",
     number = 5, 
     allowParallel = TRUE)
 
+#Neural Net
+fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                         data = extra_clean_train, 
+                         method = "nnet",
+                         trControl = tr_control_nnet,
+                         tuneGrid = expand.grid(size=c(1:5),
+                                                 decay=c(0,0.1,0.01)),
+                         skip = TRUE)
+pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
+confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
+
+#Optimal Parameters
+fit.nnet$bestTune
+
+
+#Creating empty lists
+accuracy_vector_nnet <- numeric(length(1:30))
+conf_mat_list_nnet <- vector("list",length(1:30))
+variable_importance_list_nnet <- vector("list",length(1:30))
+
+
+tr_control2_nnet <- trainControl(
+    method = "none",
+    allowParallel = TRUE)
+
+results_nnet <- foreach (i = 1:30, 
+                       .packages = c("caret", "dplyr", "nnet")) %dopar% {
+                           num_neurons <- fit.nnet$bestTune$size
+                           decay_rate <- fit.nnet$bestTune$decay
+                           
+                           # Training the neural net model 30 times w/1 neuron
+                           nnet_model <- caret::train(
+                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                               data = oversampled_data_list[[i]],
+                               method = "nnet",
+                               tuneGrid = expand.grid(size=num_neurons,decay=decay_rate),
+                               trControl = tr_control2_nnet,
+                               skip = TRUE
+                           )
+                           
+                           #Confusion Matrix of final model predicting Resolved Case
+                           predictions_nnet <- predict(nnet_model, newdata = clean_data_test_list[[i]])
+                           confusion_mat_nnet <- confusionMatrix(predictions_nnet, clean_data_test_list[[i]]$Legal_Action)
+                           
+                           accuracy_vector_nnet[i] <- confusion_mat_nnet$overall['Accuracy']
+                           
+                           var_importance_nnet <- varImp(nnet_model)  
+                           variable_importance_list_nnet[[i]] <- var_importance_nnet
+                           
+                           list(
+                               confusion_matrix = confusion_mat_nnet,
+                               accuracy = confusion_mat_nnet$overall['Accuracy'],
+                               variable_importance = var_importance_nnet
+                           )
+                       }
+
+for (i in 1:length(results_nnet)){
+    conf_mat_list_nnet[[i]] <- results_nnet[[i]]$confusion_matrix
+    accuracy_vector_nnet[i] <- results_nnet[[i]]$accuracy
+    variable_importance_list_nnet[[i]] <- results_nnet[[i]]$variable_importance
+    
+}
+accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting if case was resolved")
+mean_nnet_vec  <- mean(accuracy_vector_nnet)
+
+#standard error
+std_error_nnet <- sd(accuracy_vector_nnet) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_nnet <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_nnet <- mean_nnet_vec - (critical_value_nnet * std_error_nnet)
+upper_ci_nnet <- mean_nnet_vec + (critical_value_nnet * std_error_nnet)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nnet, ", ", upper_ci_nnet, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_nnet <- which.min(abs(accuracy_vector_nnet - mean_nnet_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_nnet[closest_index_nnet])
+
+# Keras:DNN ---------------------------------------------------------------
+
+
+
+###     ###
+###KERAS###
+###     ###
+
+library(keras)
 #Scaling Age in Train
 # Preprocess only the 4th column (centering and scaling)
 preprocessed_data <- preProcess(clean_data_train[, 4, drop = FALSE], method = c("center", "scale"))
@@ -587,6 +688,7 @@ preprocessed_data2 <- preProcess(clean_data_test[, 4, drop = FALSE], method = c(
 # Apply the transformation to the same column
 clean_data_test2 <- clean_data_test
 clean_data_test2[, 4] <- predict(preprocessed_data2, clean_data_test2[, 4, drop = FALSE])
+
 
 
 # Create dummy variables for train dataset
@@ -618,32 +720,15 @@ dummy_clean_test2 <- as.data.frame(dummy_clean_test2)
 
 
 
-#Keras Neural Network
-X_train <- as.matrix(dummy_clean_train2[1:500000,-c(74,75)])
-Y_train <- as.matrix(dummy_clean_train2[1:500000,c(74,75)])
+#Converting data to proper input for Keras DNN
+X_train <- as.matrix(dummy_clean_train2[,-c(74,75)])
+Y_train <- as.matrix(dummy_clean_train2[,c(74,75)])
+Y_train <- apply(Y_train, 1, function(x) which.max(x) - 1)
+
 
 X_test <- as.matrix(dummy_clean_test2[,-c(74,75)])
 Y_test <- as.matrix(dummy_clean_test2[,c(74,75)])
-
-
-
-
-#1 neuron
-fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                         data = clean_data_train2[1:100000,], 
-                         method = "nnet",
-                         trControl = tr_control_nnet,
-                         tuneGrid = data.frame(size=1,decay=0),
-                         skip = TRUE)
-
-pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
-confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
-
-
-
-
-
-
+Y_test <- apply(Y_test, 1, function(x) which.max(x) - 1)
 
 
 
@@ -660,6 +745,7 @@ activation_function <- function() {
                 metrics = 'accuracy')
 }
 
+#Running Model
 dnn_class_model <- activation_function()
 results_dnn <- dnn_class_model %>%
     keras::fit(x = X_train, y = Y_train,
@@ -668,67 +754,30 @@ results_dnn <- dnn_class_model %>%
         verbose = 0,
         batch_size = 128)
 
+#Visualizing Model Performance
 plot(results_dnn,
      smooth = F)
 
+#Obtaining Predictions
+Y_test_pred <- predict(object = dnn_class_model, x = X_test)
+
+#Computing AUC
+library(pROC)
+Test_dnn <- cbind(Y_test_pred, Y_test)
+Test_dnn <- as.data.frame(Test)
+
+#AUC:
+Test_dnn_auc <- roc(Test_dnn$Y_test, Test_dnn$V1)
+
+#Converting probabilities to Predictions using threshold of 0.5
+Test_dnn$V1 <- ifelse(Test_dnn$V1 > 0.5,1,0)
+Test_dnn$V1 <- as.factor(Test_dnn$V1)
+Test_dnn$Y_test <- as.factor(Test_dnn$Y_test)
 
 
-
-
-
-
-
-# 
-# 
-# 
-# #2 neuron model
-# fit.nnet2 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-#                           data = clean_data_train2[1:100000,], 
-#                           method = "nnet",
-#                          trControl = tr_control_nnet,
-#                          tuneGrid = data.frame(size=2,decay=0),
-#                          skip = TRUE)
-# 
-# pred.nnet2 <- predict(fit.nnet2,clean_data_test_list[[31]])
-# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet2))
-# plot(varImp(fit.nnet2))
-# 
-# 
-# 
-# #3 neuron model
-# fit.nnet3 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-#                           data = clean_data_train2[1:100000,],
-#                           method = "nnet",
-#                           trControl = tr_control_nnet,
-#                           tuneGrid = data.frame(size=3,decay=0),
-#                           skip = TRUE)
-# 
-# pred.nnet3 <- predict(fit.nnet3,clean_data_test_list[[31]])
-# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet3))
-# 
-# 
-# # #4 neuron model
-# fit.nnet4 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-#                           data = clean_data_train2[1:100000,],
-#                           method = "nnet",
-#                           trControl = tr_control_nnet,
-#                           tuneGrid = data.frame(size=4,decay=0),
-#                           skip = TRUE)
-# 
-# pred.nnet4 <- predict(fit.nnet4,clean_data_test_list[[31]])
-# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet4))
-# 
-# # #5 neuron model
-# fit.nnet5 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-#                           data = clean_data_train2[1:100000,],
-#                           method = "nnet",
-#                           trControl = tr_control_nnet,
-#                           tuneGrid = data.frame(size=5,decay=0),
-#                           skip = TRUE)
-# 
-# pred.nnet5 <- predict(fit.nnet5,clean_data_test_list[[31]])
-# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet5))
-
+#Confusion Matrix DNN
+cm_dnn <- confusionMatrix(Test_dnn$Y_test, Test_dnn$V1)
+cm_dnn
 
 
 # Fitting Naive Bayes -----------------------------------------------------
@@ -1112,3 +1161,5 @@ closest_index_svm_linear <- which.min(abs(accuracy_vector_svm_linear - mean_svm_
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_svm_linear[closest_index_svm_linear])
 
+stopCluster(cl)
+unregister_dopar()
