@@ -564,37 +564,136 @@ ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
 # Fitting Neural Net ---------------------------------------------------------
 library(NeuralNetTools)
 library(nnet)
+library(NeuralSens)
+library(keras)
 
 tr_control_nnet <- trainControl(
     method = "cv",
     number = 5, 
     allowParallel = TRUE)
 
+#Scaling Age in Train
+# Preprocess only the 4th column (centering and scaling)
+preprocessed_data <- preProcess(clean_data_train[, 4, drop = FALSE], method = c("center", "scale"))
+
+# Apply the transformation to the same column
+clean_data_train2 <- clean_data_train
+clean_data_train2[, 4] <- predict(preprocessed_data, clean_data_train2[, 4, drop = FALSE])
+
+#Scaling Age in Test
+# Preprocess only the 4th column (centering and scaling)
+preprocessed_data2 <- preProcess(clean_data_test[, 4, drop = FALSE], method = c("center", "scale"))
+
+# Apply the transformation to the same column
+clean_data_test2 <- clean_data_test
+clean_data_test2[, 4] <- predict(preprocessed_data2, clean_data_test2[, 4, drop = FALSE])
+
+
+
+
 #1 neuron
 fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                         data = extra_clean_train, 
+                         data = clean_data_train2[1:100000,], 
                          method = "nnet",
                          trControl = tr_control_nnet,
-                         tuneGrid = data.frame(size=0,decay=0),
+                         tuneGrid = data.frame(size=1,decay=0),
                          skip = TRUE)
-#Activation Function
-activation_function <- function(x,bias,weight) {
-    return(1/(1+exp(-(bias+weight*x))))
-}
 
 pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
 confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
 
 
-#Plotting activation function performance
-with(clean_data_test_list[[31]],{
-    y <- as.numeric(Legal_Action) -1
-    plot(clean_data_test_list[[31]],y,col=Legal_Action,pch=19,cex=2,cex.lab=2,cex.axis=1.5)
-})
-x <- seq(0,0.7,by = 0.1)
-points(x,activation_function(x,-12.7,45.56),pch=19,col=4,cex=4)
-x <- seq(0,0.7,length = 100)
-lines(x, activation_function(x,-12.7,45.56),col = 'orange', lwd=4)
+
+
+
+#Keras Neural Network
+X_train <- as.matrix(clean_data_train2[1:500000,-8])
+Y_train <- as.matrix(clean_data_train2[1:500000,8])
+
+X_test <- as.matrix(clean_data_test2[,-8])
+Y_test <- as.matrix(clean_data_test2[,8])
+
+
+#Activation Function
+activation_function <- function() {
+    dnn_class_model <- keras_model_sequential() %>%
+        layer_dense(units = 50, activation = 'relu',
+                    input_shape = c(ncol(X_train))) %>%
+        layer_dense(units = 50, activation = 'relu') %>%
+        layer_dense(units = 1, activation = 'sigmoid') %>%
+        compile(optimizer = 'adam',
+                loss = 'binary_crossentropy',
+                metrics = 'accuracy')
+}
+
+dnn_class_model <- create_model()
+results_dnn <- dnn_class_model %>%
+    keras::fit(x = X_train, y = Y_train,
+        epochs = 30,
+        validation_split = 0.2,
+        verbose = 0,
+        batch_size = 128)
+
+plot(results_dnn,
+     smooth = F)
+
+
+
+
+
+
+
+
+# 
+# 
+# 
+# #2 neuron model
+# fit.nnet2 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                           data = clean_data_train2[1:100000,], 
+#                           method = "nnet",
+#                          trControl = tr_control_nnet,
+#                          tuneGrid = data.frame(size=2,decay=0),
+#                          skip = TRUE)
+# 
+# pred.nnet2 <- predict(fit.nnet2,clean_data_test_list[[31]])
+# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet2))
+# plot(varImp(fit.nnet2))
+# 
+# 
+# 
+# #3 neuron model
+# fit.nnet3 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                           data = clean_data_train2[1:100000,],
+#                           method = "nnet",
+#                           trControl = tr_control_nnet,
+#                           tuneGrid = data.frame(size=3,decay=0),
+#                           skip = TRUE)
+# 
+# pred.nnet3 <- predict(fit.nnet3,clean_data_test_list[[31]])
+# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet3))
+# 
+# 
+# # #4 neuron model
+# fit.nnet4 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                           data = clean_data_train2[1:100000,],
+#                           method = "nnet",
+#                           trControl = tr_control_nnet,
+#                           tuneGrid = data.frame(size=4,decay=0),
+#                           skip = TRUE)
+# 
+# pred.nnet4 <- predict(fit.nnet4,clean_data_test_list[[31]])
+# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet4))
+# 
+# # #5 neuron model
+# fit.nnet5 <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                           data = clean_data_train2[1:100000,],
+#                           method = "nnet",
+#                           trControl = tr_control_nnet,
+#                           tuneGrid = data.frame(size=5,decay=0),
+#                           skip = TRUE)
+# 
+# pred.nnet5 <- predict(fit.nnet5,clean_data_test_list[[31]])
+# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet5))
 
 
 
