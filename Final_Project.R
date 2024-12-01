@@ -215,6 +215,7 @@ filtered_subset3 <- filtered_subset2[filtered_subset2$Premis.Cd %in% premise_top
 
 
 #Only including rows if weapon Used in top 10
+summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
 
 weapon_top_10_string_vec <- Weapon.Used.Cd$key[1:10]
 filtered_subset4 <- filtered_subset3[filtered_subset3$Weapon.Used.Cd %in% weapon_top_10_string_vec, ]
@@ -798,6 +799,8 @@ closest_index_logit <- which.min(abs(accuracy_vector_logit - mean_logit_vec))
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_logit[closest_index_logit])
 
+#AUC of Model closest to mean
+print(auc_list_logit[closest_index_logit])
 
 
 
@@ -874,19 +877,104 @@ print(conf_mat_list_knn[closest_index_knn])
 
 # Fitting SVM -------------------------------------------------------------
 
-#SVM
-svm_grid <- expand.grid(C = 10^seq(-5,2,0.5))
+#SVM Linear Classifier
+svm_grid <- expand.grid(C = seq(0, 2, length = 20))
+train_control_svm <- trainControl(method="repeatedcv", number=10, repeats=3, allowParallel = TRUE)
+
 
 # Fit the model
-svm_grid <- caret::train(type ~., data = wine, method = "svmLinear", 
-                  trControl = train_control, tuneGrid = grid)
+svm_grid_search <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + 
+                             Vict.Sex + Premis.Cd + Weapon.Used.Cd + 
+                             date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                         data = extra_clean_train[19000:21000,], 
+                         method = "svmLinear",
+                         trControl = train_control_svm,
+                         tuneGrid = svm_grid)
 # View grid search result
-svm_grid
+sorted_svm_results <- svm_grid_search$results[order(-svm_grid_search$results$Accuracy), ]
+head(sorted_svm_results)
+plot(svm_grid_search)
 
 
+#Checking SVM Performance with Radial Kernel
+svm_grid_radial <- expand.grid(C = seq(0, 2, length = 10), sigma = seq(0, 2, length = 10))
 
 
+svm_grid_search_radial <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + 
+                             Vict.Sex + Premis.Cd + Weapon.Used.Cd + 
+                             date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                         data = extra_clean_train[19000:21000,], 
+                         method = "svmRadial",
+                         trControl = train_control_svm,
+                         tuneGrid = svm_grid_radial)
 
-stopCluster(cl)
-unregister_dopar()
+#Viewing Radial non-linear Kernel result
+sorted_svm_results_radial <- svm_grid_search_radial$results[order(-svm_grid_search_radial$results$Accuracy), ]
+head(sorted_svm_results_radial)
+plot(svm_grid_search_radial)
 
+
+cat("Going with the linear kernel as returned higher accuracies during cross-validation")
+
+#Best model optimal parameters
+sorted_svm_results[1,1]
+
+#Creating empty lists
+accuracy_vector_svm_linear <- numeric(length(1:30))
+conf_mat_list_svm_linear <- vector("list",length(1:30))
+
+svm_grid_final <- expand.grid(C = sorted_svm_results[1,1])
+
+
+results_svm_linear <- foreach (i = 1:30, 
+                       .packages = c("caret", "dplyr")) %dopar% {
+                           # Training the Random Forest model 30 times w/optimal parameters
+                           svm_linear_model <- caret::train(
+                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                               data = oversampled_data_list[[i]][19000:21000,],
+                               method = "svmLinear",
+                               tuneGrid = svm_grid_final,
+                               trControl = trainControl(method = "none",allowParallel = TRUE),
+                               )
+                           
+                           #Confusion Matrix of final model predicting Resolved Case
+                           predictions_svm_linear <- predict(svm_linear_model, newdata = clean_data_test_list[[i]])
+                           confusion_mat_svm_linear <- confusionMatrix(predictions_svm_linear, clean_data_test_list[[i]]$Legal_Action)
+                           accuracy_vector_svm_linear[i] <- confusion_mat_svm_linear$overall['Accuracy']
+                           
+                           list(
+                               confusion_matrix = confusion_mat_svm_linear,
+                               accuracy = confusion_mat_svm_linear$overall['Accuracy']
+                           )
+                       }
+
+for (i in 1:length(results_svm_linear)){
+    conf_mat_list_svm_linear[[i]] <- results_svm_linear[[i]]$confusion_matrix
+    accuracy_vector_svm_linear[i] <- results_svm_linear[[i]]$accuracy
+}
+accuracy_vector_svm_linear <- unlist(accuracy_vector_svm_linear)
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting if case was resolved")
+mean_svm_linear_vec  <- mean(accuracy_vector_svm_linear)
+
+#standard error
+std_error_svm_linear <- sd(accuracy_vector_svm_linear) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_svm_linear <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_svm_linear <- mean_svm_linear_vec - (critical_value_svm_linear * std_error_svm_linear)
+upper_ci_svm_linear <- mean_svm_linear_vec + (critical_value_svm_linear * std_error_svm_linear)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_svm_linear, ", ", upper_ci_svm_linear, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_svm_linear <- which.min(abs(accuracy_vector_svm_linear - mean_svm_linear_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_svm_linear[closest_index_svm_linear])
