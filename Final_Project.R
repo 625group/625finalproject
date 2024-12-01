@@ -589,6 +589,43 @@ clean_data_test2 <- clean_data_test
 clean_data_test2[, 4] <- predict(preprocessed_data2, clean_data_test2[, 4, drop = FALSE])
 
 
+# Create dummy variables for train dataset
+dummy_model_clean_train2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
+                                          Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
+                                          Vict.Descent.Description, 
+                                      data = clean_data_train2)
+
+# Apply the transformation
+dummy_clean_train2 <- predict(dummy_model_clean_train2, newdata = clean_data_train2)
+
+# Convert to a data frame
+dummy_clean_train2 <- as.data.frame(dummy_clean_train2)
+
+
+
+
+# Create dummy variables for test dataset
+dummy_model_clean_test2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
+                                          Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
+                                          Vict.Descent.Description, 
+                                      data = clean_data_test2)
+
+# Apply the transformation
+dummy_clean_test2 <- predict(dummy_model_clean_test2, newdata = clean_data_test2)
+
+# Convert to a data frame
+dummy_clean_test2 <- as.data.frame(dummy_clean_test2)
+
+
+
+#Keras Neural Network
+X_train <- as.matrix(dummy_clean_train2[1:500000,-c(74,75)])
+Y_train <- as.matrix(dummy_clean_train2[1:500000,c(74,75)])
+
+X_test <- as.matrix(dummy_clean_test2[,-c(74,75)])
+Y_test <- as.matrix(dummy_clean_test2[,c(74,75)])
+
+
 
 
 #1 neuron
@@ -606,12 +643,9 @@ confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
 
 
 
-#Keras Neural Network
-X_train <- as.matrix(clean_data_train2[1:500000,-8])
-Y_train <- as.matrix(clean_data_train2[1:500000,8])
 
-X_test <- as.matrix(clean_data_test2[,-8])
-Y_test <- as.matrix(clean_data_test2[,8])
+
+
 
 
 #Activation Function
@@ -626,7 +660,7 @@ activation_function <- function() {
                 metrics = 'accuracy')
 }
 
-dnn_class_model <- create_model()
+dnn_class_model <- activation_function()
 results_dnn <- dnn_class_model %>%
     keras::fit(x = X_train, y = Y_train,
         epochs = 30,
