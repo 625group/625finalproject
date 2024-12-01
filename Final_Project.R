@@ -886,7 +886,7 @@ train_control_svm <- trainControl(method="repeatedcv", number=10, repeats=3, all
 svm_grid_search <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + 
                              Vict.Sex + Premis.Cd + Weapon.Used.Cd + 
                              date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                         data = extra_clean_train[19000:21000,], 
+                         data = extra_clean_train, 
                          method = "svmLinear",
                          trControl = train_control_svm,
                          tuneGrid = svm_grid)
@@ -903,7 +903,7 @@ svm_grid_radial <- expand.grid(C = seq(0, 2, length = 10), sigma = seq(0, 2, len
 svm_grid_search_radial <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + 
                              Vict.Sex + Premis.Cd + Weapon.Used.Cd + 
                              date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                         data = extra_clean_train[19000:21000,], 
+                         data = extra_clean_train, 
                          method = "svmRadial",
                          trControl = train_control_svm,
                          tuneGrid = svm_grid_radial)
@@ -931,7 +931,7 @@ results_svm_linear <- foreach (i = 1:30,
                            # Training the Random Forest model 30 times w/optimal parameters
                            svm_linear_model <- caret::train(
                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                               data = oversampled_data_list[[i]][19000:21000,],
+                               data = oversampled_data_list[[i]],
                                method = "svmLinear",
                                tuneGrid = svm_grid_final,
                                trControl = trainControl(method = "none",allowParallel = TRUE),
@@ -978,3 +978,4 @@ closest_index_svm_linear <- which.min(abs(accuracy_vector_svm_linear - mean_svm_
 
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_svm_linear[closest_index_svm_linear])
+
