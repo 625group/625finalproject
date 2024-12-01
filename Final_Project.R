@@ -561,6 +561,39 @@ ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
 
 
 # Fitting Neural Net ---------------------------------------------------------
+library(NeuralNetTools)
+library(nnet)
+
+tr_control_nnet <- trainControl(
+    method = "cv",
+    number = 5, 
+    allowParallel = TRUE)
+
+#1 neuron
+fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                         data = extra_clean_train, 
+                         method = "nnet",
+                         trControl = tr_control_nnet,
+                         tuneGrid = data.frame(size=0,decay=0),
+                         skip = TRUE)
+#Activation Function
+activation_function <- function(x,bias,weight) {
+    return(1/(1+exp(-(bias+weight*x))))
+}
+
+pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
+confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
+
+
+#Plotting activation function performance
+with(clean_data_test_list[[31]],{
+    y <- as.numeric(Legal_Action) -1
+    plot(clean_data_test_list[[31]],y,col=Legal_Action,pch=19,cex=2,cex.lab=2,cex.axis=1.5)
+})
+x <- seq(0,0.7,by = 0.1)
+points(x,activation_function(x,-12.7,45.56),pch=19,col=4,cex=4)
+x <- seq(0,0.7,length = 100)
+lines(x, activation_function(x,-12.7,45.56),col = 'orange', lwd=4)
 
 
 
@@ -669,6 +702,109 @@ print(conf_mat_list_nb[closest_index_nb])
 
 
 # Fitting Logistic Regression ---------------------------------------------
+library(pROC)
+trControl_log <- trainControl(method = 'repeatedcv',
+                          number = 5,
+                          repeats =  5,
+                          search = 'random')
+
+logit_gridsearch <- caret::train( Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + 
+                               Vict.Sex + Premis.Cd + Weapon.Used.Cd + 
+                               date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                           data = extra_clean_train,
+                           method = 'glmnet',
+                           trControl = trControl_log,
+                           family = 'binomial',
+                           metric = 'Accuracy')
+#Optimal Parameters
+logit_gridsearch$bestTune
+
+
+
+#Creating empty lists
+accuracy_vector_logit <- numeric(length(1:30))
+conf_mat_list_logit <- vector("list",length(1:30))
+auc_list_logit <- numeric(length(1:30))
+
+
+
+results_logit <- foreach (i = 1:30, 
+                       .packages = c("caret", "dplyr", "pROC")) %dopar% {
+                           logit_alpha <- logit_gridsearch$bestTune$alpha
+                           logit_lambda<- logit_gridsearch$bestTune$lambda
+                           
+                           # Training the Random Forest model 30 times w/optimal parameters
+                           logit_model <- caret::train(
+                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                               data = oversampled_data_list[[i]],
+                               method = "glmnet",
+                               trControl = trainControl(method = "none"),  
+                               tuneGrid = expand.grid(alpha = logit_alpha, lambda = logit_lambda))
+                           
+                           #Confusion Matrix of final model predicting Resolved Case
+                           predictions_logit <- predict(logit_model, newdata = clean_data_test_list[[i]])
+                           confusion_mat_logit <- confusionMatrix(predictions_logit, clean_data_test_list[[i]]$Legal_Action)
+                           
+                           accuracy_vector_logit[i] <- confusion_mat_logit$overall['Accuracy']
+
+                           #Predictions with probabilities
+                           logit_auc_pred <- predict(logit_model, clean_data_test_list[[i]], 'prob')
+                           logit_auc_pred <- cbind(logit_auc_pred[,1],as.character(clean_data_test_list[[i]]$Legal_Action))
+                           logit_auc_pred <- as.data.frame(logit_auc_pred)
+                           logit_auc_pred$V2 <- as.factor(logit_auc_pred$V2)
+                           logit_auc_pred$V1 <- as.numeric(logit_auc_pred$V1)
+                           
+                           #AUC
+                           logit_auc_roc <- roc(logit_auc_pred$V2, logit_auc_pred$V1)
+                           auc_list_logit <- logit_auc_roc$auc[1] 
+                           
+                           list(
+                               confusion_matrix = confusion_mat_logit,
+                               accuracy = confusion_mat_logit$overall['Accuracy'],
+                               auc = auc_list_logit
+                           )
+                       }
+
+for (i in 1:length(results_logit)){
+    conf_mat_list_logit[[i]] <- results_logit[[i]]$confusion_matrix
+    accuracy_vector_logit[i] <- results_logit[[i]]$accuracy
+    auc_list_logit[[i]] <- results_logit[[i]]$auc
+    
+}
+accuracy_vector_logit <- unlist(accuracy_vector_logit)
+
+cat("Creating 95% Confidence Interval for Accuracy of Model 
+    predicting if case was resolved\n")
+mean_logit_vec  <- mean(accuracy_vector_logit)
+
+#standard error
+std_error_logit <- sd(accuracy_vector_logit) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_logit <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_logit <- mean_logit_vec - (critical_value_logit * std_error_logit)
+upper_ci_logit <- mean_logit_vec + (critical_value_logit * std_error_logit)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_logit, ", ", upper_ci_logit, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_logit <- which.min(abs(accuracy_vector_logit - mean_logit_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_logit[closest_index_logit])
+
+
+
+
+
+
+
+
 
 # Fitting KNN -------------------------------------------------------------
 
