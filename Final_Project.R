@@ -29,6 +29,7 @@ library(doParallel)
 library(pdftools)
 library(KMEANS.KNN)
 
+# raw <- read.csv("/Users/rpravin/Downloads/Crime_Data_from_2010_to_2019_20241122.csv") 
 raw <- read.csv("/Users/zoelu/Downloads/Crime_Data_from_2010_to_2019_20241126.csv")
 
 summary(raw)
