@@ -29,7 +29,7 @@ library(doParallel)
 library(pdftools)
 library(KMEANS.KNN)
 
-raw <- read.csv("/Users/rpravin/Downloads/Crime_Data_from_2010_to_2019_20241122.csv")
+raw <- read.csv("/Users/zoelu/Downloads/Crime_Data_from_2010_to_2019_20241126.csv")
 
 summary(raw)
 
@@ -285,10 +285,21 @@ clean_data <- filtered_subset14
 
 
 # EDA: Count Plots for Categorical -------------------------------------------------------------
+ggplot(clean_data, aes(x = Legal_Action)) +
+    geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Count of Ongoing Investions vs Closed", x = "Case Status", y = "Number of Cases") +
+    theme_minimal()
+
 
 #Number of Crimes Per Geographic Area
 ggplot(clean_data, aes(x = AREA)) +
     geom_bar(color = "black", fill = "skyblue") +
+    labs(title = "Number of Crimes Per Geographic Area", x = "Geographic Area", y = "Number of Crimes") +
+    theme_minimal()
+
+#Number of Crimes Per Geographic Area Grouped by Case Status
+ggplot(clean_data, aes(x = AREA, fill = Legal_Action)) +
+    geom_bar(color = "black") +
     labs(title = "Number of Crimes Per Geographic Area", x = "Geographic Area", y = "Number of Crimes") +
     theme_minimal()
 
@@ -308,7 +319,13 @@ ggplot(clean_data, aes(x = Crm.Cd)) +
 
 #Number of Crimes Per Vict.Sex
 ggplot(clean_data, aes(x = Vict.Sex)) +
-    geom_bar(color = "black", fill = "skyblue") +
+    geom_bar(color = "black") +
+    labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
+    theme_minimal()
+
+# Number of Crimes Per Victim Sex by Case Status
+ggplot(clean_data, aes(x = Vict.Sex, fill = Legal_Action)) +
+    geom_bar(color = "black", position = "dodge") +
     labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
     theme_minimal()
 
