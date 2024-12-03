@@ -64,7 +64,7 @@ table(raw_subset$Status.Desc)
 #Setting rows marked as UNK(unclear) to NA
 raw_subset$Status.Desc[raw_subset$Status.Desc == "UNK"] <- NA
 
-#Creating new Variable with our proposed Binary Outcome Legal Actions vs. No Legal Action
+#Creating new Variable with our proposed Binary Outcome Legal Actions vs. No Legal Action(Status Case)
 raw_subset$Legal_Action <- raw_subset$Status.Desc 
 raw_subset$Legal_Action <- as.character(raw_subset$Legal_Action)
 raw_subset$Legal_Action <- ifelse(raw_subset$Legal_Action == "Invest Cont", 0, 1)
@@ -461,12 +461,12 @@ oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE"))
     oversample_data(data)
 }
 
-
-
-# Random Forest ---------------------------------------------------
 #Calling 31st dataset
 extra_clean_train <- oversampled_data_list[[31]]
-extra_clean_train <- extra_clean_train[sample(nrow(extra_clean_train)),]
+#extra_clean_train <- extra_clean_train[sample(nrow(extra_clean_train)),]
+
+# Random Forest ---------------------------------------------------
+
 
 # Define the grid of hyper-parameters to tune
 tune_grid <- expand.grid(mtry = c(3,7,11))
@@ -1181,4 +1181,11 @@ print(conf_mat_list_svm_linear[closest_index_svm_linear])
 
 stopCluster(cl)
 unregister_dopar()
+
+
+
+
+
+
+
 
