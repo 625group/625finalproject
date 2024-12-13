@@ -74,7 +74,6 @@ raw_subset$military_time <- raw_subset$TIME.OCC
 # Afternoon 12 pm to 5 pm.
 # Evening 5 pm to 9 pm.
 # Night 9 pm to 4 am.
-
 military_times_str <- sprintf("%04d", raw_subset$military_time)
 
 hours <- as.integer(substr(military_times_str, 1, 2))
@@ -85,11 +84,7 @@ categories <- ifelse(hours >= 5 & hours < 12, "Morning",
 
 raw_subset$time_occur_cat <- categories
 
-
-
-
 # Creating dictionaries to store descriptions of unique values and frequencies of each category -------------------------------------------------------
-
 summary_tables_top20 <- function(key_input,value_input) {
   dict <- setNames(key_input,value_input)
   df <- data.frame(
@@ -106,6 +101,7 @@ summary_tables_top20 <- function(key_input,value_input) {
   row_counts <- c(10,15, 20, 25, 50)
   total_rows <- nrow(df)
   
+  # printing out top cateogries
   cat("Cumulative sums of frequencies for the top categories:\n")
   for (n in row_counts) {
       if (n <= total_rows) {
@@ -114,63 +110,21 @@ summary_tables_top20 <- function(key_input,value_input) {
           cat(paste0("Top ", n, " categories: Not enough categories (only ", total_rows, " categories available).\n"))
       }
   }
-  
   return(head(df,20))
 }
 
-
-
+# view summaries of top categories
 summary_tables_top20(raw_subset$AREA.NAME, raw_subset$AREA)
-
 summary_tables_top20(raw_subset$Crm.Cd.Desc,raw_subset$Crm.Cd)
-
 summary_tables_top20(raw_subset$Premis.Desc, raw_subset$Premis.Cd)
-
 summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
-
-
-
 
 # Weapons NA Recode -------------------------------------------------------
 #Creating new category None instead of NA for no weapon used
 raw_subset$Weapon.Used.Cd <- as.character(raw_subset$Weapon.Used.Cd)
 raw_subset$Weapon.Used.Cd[is.na(raw_subset$Weapon.Used.Cd) == T] <- "None"
 
-
-
-# # Reading in Mocodes PDF --------------------------------------------------
-# 
-# # Read text from the PDF
-# pdf_text <- pdf_text("/Users/rpravin/Downloads/MO_CODES_Numerical_20191119 (1).pdf")
-# 
-# # Split the text into lines
-# lines <- unlist(strsplit(pdf_text, "\n"))
-# head(lines,200)
-# # Extract lines matching the pattern of MO codes
-# mo_data <- grep("^\\s*\\d{4}\\s+.*", lines, value = TRUE)
-# 
-# # Split each line into code and description
-# mo_split <- strsplit(mo_data, " ", fixed = TRUE)
-# 
-# # Separate codes and descriptions
-# mo_codes <- sapply(mo_split, `[`, 1)
-# mo_descriptions <- sapply(mo_split, function(x) paste(x[-1], collapse = " "))
-# 
-# # Create the dictionary
-# mo_dictionary <- setNames(mo_descriptions, mo_codes)
-# 
-# mo_dict_df <- data.frame(
-#     code = substr(mo_dictionary, 1, 6),                    
-#     description = trimws(substr(mo_dictionary, 7, nchar(mo_dictionary))),  
-#     stringsAsFactors = FALSE
-# )
-# 
-# Mo_top_categories <- head(sort(table(raw_subset$Mocodes), decreasing = TRUE), 50)
-# Mo_top_categories[1:10]
-# 
 # Subsetting Columns needed readying data for cleaning -----------------------------------------------
-
-
 columns_to_subset <- c("AREA", "Rpt.Dist.No", "Part.1.2", "Crm.Cd", "Mocodes", 
                        "Vict.Age", "Vict.Sex", "Vict.Descent", "Premis.Cd", 
                        "Weapon.Used.Cd", "Status", "Legal_Action", 
@@ -182,11 +136,9 @@ subset1 <- raw_subset[,columns_to_subset]
 crime_top_50_string_vec <- Crm.Cd$key[1:50]
 filtered_subset2 <- subset1[subset1$Crm.Cd %in% crime_top_50_string_vec, ]
 
-
 #Only including rows whose crime took place in Premise in top 50
 premise_top_50_string_vec <- Premis.Cd$key[1:50]
 filtered_subset3 <- filtered_subset2[filtered_subset2$Premis.Cd %in% premise_top_50_string_vec, ]
-
 
 #Only including rows if weapon Used in top 10
 summary_tables_top20(raw_subset$Weapon.Desc, raw_subset$Weapon.Used.Cd)
@@ -205,10 +157,8 @@ filtered_subset5$Weapon.Used.Cd <- as.factor(filtered_subset5$Weapon.Used.Cd)
 filtered_subset5$Legal_Action <- as.factor(filtered_subset5$Legal_Action)
 filtered_subset5$time_occur_cat <- as.factor(filtered_subset5$time_occur_cat)
 
-
-
 # Cleaning Data -----------------------------------------------------------
-#Identified and cleaning Negative Ages, one age of 118, and sex:X
+# Identified and cleaning Negative Ages, one age of 118, and sex:X
 filtered_subset6 <- filtered_subset5[filtered_subset5$Vict.Age > 0,]
 filtered_subset7 <- filtered_subset6[filtered_subset6$Vict.Age <= 100, ]
 filtered_subset8 <- filtered_subset7[filtered_subset7$Vict.Sex == "F" | filtered_subset7$Vict.Sex == "M", ]
@@ -251,82 +201,34 @@ filtered_subset12 <- filtered_subset11[, !(colnames(filtered_subset11) %in% "Rpt
 #Removing Status as outcome coded into Legal Action
 filtered_subset13 <- filtered_subset12[, !(colnames(filtered_subset12) %in% "Status")]
 
-
 #Omitting Nulls
 filtered_subset14 <- na.omit(filtered_subset13)
 
 clean_data <- filtered_subset14
 
+# EDA: Count Plots for Some Categorical -------------------------------------------------------------
+# function to create plots
+barchart_fcn <- function(variable, title, x, y) {
+    ggplot(clean_data, aes(x = .data[[variable]]), title, x, y) +
+        geom_bar(color = "black", fill = "skyblue") +
+        labs(title = title, x = x, y = y) +
+        theme_minimal()
+}
 
-# EDA: Count Plots for Categorical -------------------------------------------------------------
-ggplot(clean_data, aes(x = Legal_Action)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Count of Ongoing Investions vs Closed", x = "Case Status", y = "Number of Cases") +
-    theme_minimal()
+# legal action barchart
+barchart_fcn("Legal_Action",
+             title = "Count of Ongoing Investions vs Closed",
+             x = "Case Status", y = "Number of Cases")
 
-
-#Number of Crimes Per Geographic Area
-ggplot(clean_data, aes(x = AREA)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Number of Crimes Per Geographic Area", x = "Geographic Area", y = "Number of Crimes") +
-    theme_minimal()
-
-#Number of Crimes Per Geographic Area Grouped by Case Status
-ggplot(clean_data, aes(x = AREA, fill = Legal_Action)) +
-    geom_bar(color = "black") +
-    labs(title = "Number of Crimes Per Geographic Area", x = "Geographic Area", y = "Number of Crimes") +
-    theme_minimal()
-
-
-#Number of Crimes Per Part.1.2
-ggplot(clean_data, aes(x = Part.1.2)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Number of Crimes Per Crime Classification", x = "Crime Classification", y = "Number of Crimes") +
-    theme_minimal()
-
-#Number of Crimes Per Crm.Cd
-ggplot(clean_data, aes(x = Crm.Cd)) +
-    geom_bar(position = position_dodge(width = 0.4),color = "black", fill = "skyblue") +
-    theme_minimal() +    
-    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-    labs(title = "Number of Crimes Per Crime Code", x = "Crime Code", y = "Number of Crimes") 
-
-#Number of Crimes Per Vict.Sex
-ggplot(clean_data, aes(x = Vict.Sex)) +
-    geom_bar(color = "black") +
-    labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
-    theme_minimal()
-
-# Number of Crimes Per Victim Sex by Case Status
-ggplot(clean_data, aes(x = Vict.Sex, fill = Legal_Action)) +
-    geom_bar(color = "black", position = "dodge") +
-    labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
-    theme_minimal()
-
-#Number of Crimes Per Premis.Cd
-ggplot(clean_data, aes(x = Premis.Cd)) +
-    geom_bar(position = position_dodge(width = 0.4),color = "black", fill = "skyblue") +
-    theme_minimal() +    
-    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
-    labs(title = "Number of Crimes Per Premise(Structure) Type", x = "Premise(Structure) Type", y = "Number of Crimes") 
-
-#Number of Crimes Per Weapon.Used.Cd
-ggplot(clean_data, aes(x = Weapon.Used.Cd)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Number of Crimes Per Weapon Used", x = "Weapon Used", y = "Number of Crimes") +
-    theme_minimal()
-
-#Number of Crimes Per Case resolved or not
-ggplot(clean_data, aes(x = Legal_Action)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Number of Crimes Per Case resolved or not", x = "Case resolved or not", y = "Number of Crimes") +
-    theme_minimal()
+# area barchart
+barchart_fcn("AREA",
+             title = "Number of Crimes Per Geographic Area",
+             x = "Geographic Area", y = "Number of Crimes")
 
 #Number of Crimes Per time_occur_cat
-ggplot(clean_data, aes(x = time_occur_cat)) +
-    geom_bar(color = "black", fill = "skyblue") +
-    labs(title = "Number of Crimes Per Time Range", x = "Time Range", y = "Number of Crimes") +
-    theme_minimal()
+barchart_fcn("time_occur_cat", 
+             title = "Number of Crimes Per Geographic Area",
+             x = "Geographic Area", y = "Number of Crimes")
 
 #Number of Crimes Per Vict.Descent.Description
 ggplot(clean_data, aes(x = Vict.Descent.Description)) +
@@ -335,27 +237,18 @@ ggplot(clean_data, aes(x = Vict.Descent.Description)) +
     theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
     labs(title = "Number of Crimes Per Victim Race/Ethnicity", x = "Victim Race/Ethnicity", y = "Number of Crimes") 
 
+# Number of Crimes Per Victim Sex by Case Status
+ggplot(clean_data, aes(x = Vict.Sex, fill = Legal_Action)) +
+    geom_bar(color = "black", position = "dodge") +
+    labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
+    theme_minimal()
 
 # EDA: Box Plots/Histograms for Continuous -------------------------------------------------------------
-
-# Victim Age boxplot
-ggplot(clean_data, aes(y = Vict.Age)) +
-    geom_boxplot(fill = "steelblue") +
-    labs(title = "Boxplot of Victim Ages", y = "Age") +
-    theme_minimal()
 
 # Victim Age histogram
 ggplot(clean_data, aes(x = Vict.Age)) +
     geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
     labs(title = "Histogram", x = "Victim Age", y = "Count") +
-    theme_minimal()
-
-
-# Days Difference in Crime Occurence and Crime Reported boxplot
-ggplot(clean_data, aes(y = date_occur_report_difference)) +
-    geom_boxplot(fill = "steelblue") +
-    labs(title = "Boxplot of Days Difference in Crime Occurence and Crime Reported", 
-         y = "Days Difference in Crime Occurence and Crime Reported") +
     theme_minimal()
 
 # Days Difference in Crime Occurrence and Crime Reported histogram
@@ -377,16 +270,7 @@ ggplot(clean_data, aes(x = date_occur_report_difference)) +
     labs(title = "Number of Crimes Per Days Difference in Crime Occurrence and Crime Reported Count Plot", 
          x = "Days Difference in Crime Occurrence and Crime Reported", y = "Number of Crimes") 
 
-# EDA: Summary Stats ------------------------------------------------------
-summary(clean_data)
-
-
-
-
-
-
 # Subsetting bootstraps defining bootstrap function -------------------------------------------
-
 set.seed(123)
 
 # Randomly shuffling the data and dividing into train/test
@@ -407,15 +291,10 @@ df_subsets_train <- split(clean_data_train, clean_data_train$Group)
 clean_data_test$Group <- sample(1:31, size = nrow(clean_data_test), replace = T)
 clean_data_test_list <- split(clean_data_test, clean_data_test$Group)
 
-
-
-
 # Define oversampling function
 oversample_data <- function(data) {
     return(ovun.sample(Legal_Action ~ ., data = data, p=0.5)$data)
 }
-
-
 
 # Intializing Parallel and Bootstrapping ------------------------------------------------------------
 unregister_dopar <- function() {
@@ -429,451 +308,431 @@ num_cores <- detectCores() - 1
 cl <- makePSOCKcluster(num_cores)
 registerDoParallel(cl)
 
-
 oversampled_data_list <- foreach(data = df_subsets_train, .packages = c("ROSE")) %dopar% {
     oversample_data(data)
 }
 
 #Calling 31st dataset
 extra_clean_train <- oversampled_data_list[[31]]
-#extra_clean_train <- extra_clean_train[sample(nrow(extra_clean_train)),]
 
 # Random Forest ---------------------------------------------------
-
-
 # Define the grid of hyper-parameters to tune
-tune_grid <- expand.grid(mtry = c(3,7,11))
-tr_control <- trainControl(
-    method = "cv",
-    number = 5, 
-    allowParallel = TRUE)
-
-rf_gridsearch <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                              data = extra_clean_train, 
-                              tuneGrid = tune_grid,
-                             method = "rf",
-                             trControl = tr_control,
-                              importance = TRUE,
-                             ntree = 100)
-
-rf_elbow <- plot(rf_gridsearch)
-rf_elbow
-
-
-#Creating empty lists
-accuracy_vector_rf <- numeric(length(1:30))
-conf_mat_list_rf <- vector("list",length(1:30))
-variable_importance_list_rf <- vector("list",length(1:30))
-
-
-tune_grid2 <- expand.grid(mtry = 11)  
-
-tr_control2 <- trainControl(
-    method = "none",
-    allowParallel = TRUE)
-
-results_rf <- foreach (i = 1:30, 
-                    .packages = c("caret", "dplyr")) %dopar% {
-                        # Training the Random Forest model 30 times w/optimal parameters
-                        rf_model <- caret::train(
-                            Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                            data = oversampled_data_list[[i]],
-                            method = "rf",
-                            tuneGrid = tune_grid2,
-                            trControl = tr_control2,
-                            importance = TRUE
-                        )
-                        
-                        #Confusion Matrix of final model predicting Resolved Case
-                        predictions_rf <- predict(rf_model, newdata = clean_data_test_list[[i]])
-                        confusion_mat_rf <- confusionMatrix(predictions_rf, clean_data_test_list[[i]]$Legal_Action)
-
-                        accuracy_vector_rf[i] <- confusion_mat_rf$overall['Accuracy']
-                        
-                        var_importance_rf <- varImp(rf_model, type = 2)  
-                        variable_importance_list_rf[[i]] <- var_importance_rf
-                        
-                        list(
-                            confusion_matrix = confusion_mat_rf,
-                            accuracy = confusion_mat_rf$overall['Accuracy'],
-                            variable_importance = var_importance_rf
-                        )
-                    }
-
-for (i in 1:length(results_rf)){
-    conf_mat_list_rf[[i]] <- results_rf[[i]]$confusion_matrix
-    accuracy_vector_rf[i] <- results_rf[[i]]$accuracy
-    variable_importance_list_rf[[i]] <- results_rf[[i]]$variable_importance
-    
-}
-accuracy_vector_rf <- unlist(accuracy_vector_rf)
-
-cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting if case was resolved")
-mean_rf_vec  <- mean(accuracy_vector_rf)
-
-#standard error
-std_error_rf <- sd(accuracy_vector_rf) / sqrt(30)
-
-#critical t value for 95% CI
-critical_value_rf <- qt(0.975, df = 30 - 1)
-
-#confidence interval
-lower_ci_rf <- mean_rf_vec - (critical_value_rf * std_error_rf)
-upper_ci_rf <- mean_rf_vec + (critical_value_rf * std_error_rf)
-
-# 95% CI
-cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_rf, ", ", upper_ci_rf, "]\n")
-
-
-#Finding Index of accuracy value closest to mean
-closest_index_rf <- which.min(abs(accuracy_vector_rf - mean_rf_vec))
-
-
-#Confusion Matrix of Model closest to mean accuracy
-print(conf_mat_list_rf[closest_index_rf])
-
-
-#Variable top 20 Importance Plot of model 
-var_imp <- varImp(rf_gridsearch, type = 2)
-var_imp_df <- as.data.frame(var_imp$importance)
-var_imp_df$Variable <- rownames(var_imp_df)
-top_20_vars <- var_imp_df[order(-var_imp_df$Overall), ][1:20, ]
-
-ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
-    geom_bar(stat = "identity", fill = "steelblue") +
-    coord_flip() +
-    labs(
-        title = "Top 20 Variables Ranked by Gini Impurity",
-        x = "Variable",
-        y = "Importance"
-    ) +
-    theme_minimal()
-
+# tune_grid <- expand.grid(mtry = c(3,7,11))
+# tr_control <- trainControl(
+#     method = "cv",
+#     number = 5, 
+#     allowParallel = TRUE)
+# 
+# rf_gridsearch <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                               data = extra_clean_train, 
+#                               tuneGrid = tune_grid,
+#                              method = "rf",
+#                              trControl = tr_control,
+#                               importance = TRUE,
+#                              ntree = 100)
+# 
+# rf_elbow <- plot(rf_gridsearch)
+# rf_elbow
+# 
+# #Creating empty lists
+# accuracy_vector_rf <- numeric(length(1:30))
+# conf_mat_list_rf <- vector("list",length(1:30))
+# variable_importance_list_rf <- vector("list",length(1:30))
+# 
+# tune_grid2 <- expand.grid(mtry = 11)  
+# 
+# tr_control2 <- trainControl(
+#     method = "none",
+#     allowParallel = TRUE)
+# 
+# results_rf <- foreach (i = 1:30, 
+#                     .packages = c("caret", "dplyr")) %dopar% {
+#                         # Training the Random Forest model 30 times w/optimal parameters
+#                         rf_model <- caret::train(
+#                             Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                             data = oversampled_data_list[[i]],
+#                             method = "rf",
+#                             tuneGrid = tune_grid2,
+#                             trControl = tr_control2,
+#                             importance = TRUE)
+#                         
+#                         #Confusion Matrix of final model predicting Resolved Case
+#                         predictions_rf <- predict(rf_model, newdata = clean_data_test_list[[i]])
+#                         confusion_mat_rf <- confusionMatrix(predictions_rf, clean_data_test_list[[i]]$Legal_Action)
+# 
+#                         accuracy_vector_rf[i] <- confusion_mat_rf$overall['Accuracy']
+#                         
+#                         var_importance_rf <- varImp(rf_model, type = 2)  
+#                         variable_importance_list_rf[[i]] <- var_importance_rf
+#                         
+#                         list(
+#                             confusion_matrix = confusion_mat_rf,
+#                             accuracy = confusion_mat_rf$overall['Accuracy'],
+#                             variable_importance = var_importance_rf
+#                         )
+#                     }
+# 
+# # setting results
+# for (i in 1:length(results_rf)){
+#     conf_mat_list_rf[[i]] <- results_rf[[i]]$confusion_matrix
+#     accuracy_vector_rf[i] <- results_rf[[i]]$accuracy
+#     variable_importance_list_rf[[i]] <- results_rf[[i]]$variable_importance
+#     
+# }
+# 
+# accuracy_vector_rf <- unlist(accuracy_vector_rf)
+# 
+# cat("Creating 95% Confidence Interval for Accuracy of Model 
+#     predicting if case was resolved")
+# mean_rf_vec  <- mean(accuracy_vector_rf)
+# 
+# #standard error
+# std_error_rf <- sd(accuracy_vector_rf) / sqrt(30)
+# 
+# #critical t value for 95% CI
+# critical_value_rf <- qt(0.975, df = 30 - 1)
+# 
+# #confidence interval
+# lower_ci_rf <- mean_rf_vec - (critical_value_rf * std_error_rf)
+# upper_ci_rf <- mean_rf_vec + (critical_value_rf * std_error_rf)
+# 
+# # 95% CI
+# cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_rf, ", ", upper_ci_rf, "]\n")
+# 
+# #Finding Index of accuracy value closest to mean
+# closest_index_rf <- which.min(abs(accuracy_vector_rf - mean_rf_vec))
+# 
+# #Confusion Matrix of Model closest to mean accuracy
+# print(conf_mat_list_rf[closest_index_rf])
+# 
+# #Variable top 20 Importance Plot of model 
+# var_imp <- varImp(rf_gridsearch, type = 2)
+# var_imp_df <- as.data.frame(var_imp$importance)
+# var_imp_df$Variable <- rownames(var_imp_df)
+# top_20_vars <- var_imp_df[order(-var_imp_df$Overall), ][1:20, ]
+# 
+# ggplot(top_20_vars, aes(x = reorder(Variable, Overall), y = Overall)) +
+#     geom_bar(stat = "identity", fill = "steelblue") +
+#     coord_flip() +
+#     labs(
+#         title = "Top 20 Variables Ranked by Gini Impurity",
+#         x = "Variable",
+#         y = "Importance"
+#     ) +
+#     theme_minimal()
 
 # Neural Net  ---------------------------------------------------------
-library(NeuralNetTools)
-library(nnet)
-library(NeuralSens)
-
-
-###          ###
-###Neural Net###
-###          ###
-
-tr_control_nnet <- trainControl(
-    method = "cv",
-    number = 5, 
-    allowParallel = TRUE)
-
-#Neural Net
-fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                         data = extra_clean_train, 
-                         method = "nnet",
-                         trControl = tr_control_nnet,
-                         tuneGrid = expand.grid(size=c(1:5),
-                                                 decay=c(0,0.1,0.01)),
-                         skip = TRUE)
-pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
-confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
-
-#Optimal Parameters
-fit.nnet$bestTune
-
-
-#Creating empty lists
-accuracy_vector_nnet <- numeric(length(1:30))
-conf_mat_list_nnet <- vector("list",length(1:30))
-variable_importance_list_nnet <- vector("list",length(1:30))
-
-
-tr_control2_nnet <- trainControl(
-    method = "none",
-    allowParallel = TRUE)
-
-results_nnet <- foreach (i = 1:30, 
-                       .packages = c("caret", "dplyr", "nnet")) %dopar% {
-                           num_neurons <- fit.nnet$bestTune$size
-                           decay_rate <- fit.nnet$bestTune$decay
-                           
-                           # Training the neural net model 30 times w/1 neuron
-                           nnet_model <- caret::train(
-                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                               data = oversampled_data_list[[i]],
-                               method = "nnet",
-                               tuneGrid = expand.grid(size=num_neurons,decay=decay_rate),
-                               trControl = tr_control2_nnet,
-                               skip = TRUE
-                           )
-                           
-                           #Confusion Matrix of final model predicting Resolved Case
-                           predictions_nnet <- predict(nnet_model, newdata = clean_data_test_list[[i]])
-                           confusion_mat_nnet <- confusionMatrix(predictions_nnet, clean_data_test_list[[i]]$Legal_Action)
-                           
-                           accuracy_vector_nnet[i] <- confusion_mat_nnet$overall['Accuracy']
-                           
-                           var_importance_nnet <- varImp(nnet_model)  
-                           variable_importance_list_nnet[[i]] <- var_importance_nnet
-                           
-                           list(
-                               confusion_matrix = confusion_mat_nnet,
-                               accuracy = confusion_mat_nnet$overall['Accuracy'],
-                               variable_importance = var_importance_nnet
-                           )
-                       }
-
-for (i in 1:length(results_nnet)){
-    conf_mat_list_nnet[[i]] <- results_nnet[[i]]$confusion_matrix
-    accuracy_vector_nnet[i] <- results_nnet[[i]]$accuracy
-    variable_importance_list_nnet[[i]] <- results_nnet[[i]]$variable_importance
-    
-}
-accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
-
-cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting if case was resolved")
-mean_nnet_vec  <- mean(accuracy_vector_nnet)
-
-#standard error
-std_error_nnet <- sd(accuracy_vector_nnet) / sqrt(30)
-
-#critical t value for 95% CI
-critical_value_nnet <- qt(0.975, df = 30 - 1)
-
-#confidence interval
-lower_ci_nnet <- mean_nnet_vec - (critical_value_nnet * std_error_nnet)
-upper_ci_nnet <- mean_nnet_vec + (critical_value_nnet * std_error_nnet)
-
-# 95% CI
-cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nnet, ", ", upper_ci_nnet, "]\n")
-
-
-#Finding Index of accuracy value closest to mean
-closest_index_nnet <- which.min(abs(accuracy_vector_nnet - mean_nnet_vec))
-
-
-#Confusion Matrix of Model closest to mean accuracy
-print(conf_mat_list_nnet[closest_index_nnet])
+# library(NeuralNetTools)
+# library(nnet)
+# library(NeuralSens)
+# ###          ###
+# ###Neural Net###
+# ###          ###
+# 
+# tr_control_nnet <- trainControl(
+#     method = "cv",
+#     number = 5, 
+#     allowParallel = TRUE)
+# 
+# #Neural Net
+# fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                          data = extra_clean_train, 
+#                          method = "nnet",
+#                          trControl = tr_control_nnet,
+#                          tuneGrid = expand.grid(size=c(1:5),
+#                                                  decay=c(0,0.1,0.01)),
+#                          skip = TRUE)
+# pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
+# confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
+# 
+# #Optimal Parameters
+# fit.nnet$bestTune
+# 
+# 
+# #Creating empty lists
+# accuracy_vector_nnet <- numeric(length(1:30))
+# conf_mat_list_nnet <- vector("list",length(1:30))
+# variable_importance_list_nnet <- vector("list",length(1:30))
+# 
+# 
+# tr_control2_nnet <- trainControl(
+#     method = "none",
+#     allowParallel = TRUE)
+# 
+# results_nnet <- foreach (i = 1:30, 
+#                        .packages = c("caret", "dplyr", "nnet")) %dopar% {
+#                            num_neurons <- fit.nnet$bestTune$size
+#                            decay_rate <- fit.nnet$bestTune$decay
+#                            
+#                            # Training the neural net model 30 times w/1 neuron
+#                            nnet_model <- caret::train(
+#                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                                data = oversampled_data_list[[i]],
+#                                method = "nnet",
+#                                tuneGrid = expand.grid(size=num_neurons,decay=decay_rate),
+#                                trControl = tr_control2_nnet,
+#                                skip = TRUE
+#                            )
+#                            
+#                            #Confusion Matrix of final model predicting Resolved Case
+#                            predictions_nnet <- predict(nnet_model, newdata = clean_data_test_list[[i]])
+#                            confusion_mat_nnet <- confusionMatrix(predictions_nnet, clean_data_test_list[[i]]$Legal_Action)
+#                            
+#                            accuracy_vector_nnet[i] <- confusion_mat_nnet$overall['Accuracy']
+#                            
+#                            var_importance_nnet <- varImp(nnet_model)  
+#                            variable_importance_list_nnet[[i]] <- var_importance_nnet
+#                            
+#                            list(
+#                                confusion_matrix = confusion_mat_nnet,
+#                                accuracy = confusion_mat_nnet$overall['Accuracy'],
+#                                variable_importance = var_importance_nnet
+#                            )
+#                        }
+# 
+# for (i in 1:length(results_nnet)){
+#     conf_mat_list_nnet[[i]] <- results_nnet[[i]]$confusion_matrix
+#     accuracy_vector_nnet[i] <- results_nnet[[i]]$accuracy
+#     variable_importance_list_nnet[[i]] <- results_nnet[[i]]$variable_importance
+#     
+# }
+# accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
+# 
+# cat("Creating 95% Confidence Interval for Accuracy of Model 
+#     predicting if case was resolved")
+# mean_nnet_vec  <- mean(accuracy_vector_nnet)
+# 
+# #standard error
+# std_error_nnet <- sd(accuracy_vector_nnet) / sqrt(30)
+# 
+# #critical t value for 95% CI
+# critical_value_nnet <- qt(0.975, df = 30 - 1)
+# 
+# #confidence interval
+# lower_ci_nnet <- mean_nnet_vec - (critical_value_nnet * std_error_nnet)
+# upper_ci_nnet <- mean_nnet_vec + (critical_value_nnet * std_error_nnet)
+# 
+# # 95% CI
+# cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nnet, ", ", upper_ci_nnet, "]\n")
+# 
+# 
+# #Finding Index of accuracy value closest to mean
+# closest_index_nnet <- which.min(abs(accuracy_vector_nnet - mean_nnet_vec))
+# 
+# 
+# #Confusion Matrix of Model closest to mean accuracy
+# print(conf_mat_list_nnet[closest_index_nnet])
 
 # Keras:DNN ---------------------------------------------------------------
-
-
-
 ###     ###
 ###KERAS###
 ###     ###
 
-library(keras)
-#Scaling Age in Train
-# Preprocess only the 4th column (centering and scaling)
-preprocessed_data <- preProcess(clean_data_train[, 4, drop = FALSE], method = c("center", "scale"))
-
-# Apply the transformation to the same column
-clean_data_train2 <- clean_data_train
-clean_data_train2[, 4] <- predict(preprocessed_data, clean_data_train2[, 4, drop = FALSE])
-
-#Scaling Age in Test
-# Preprocess only the 4th column (centering and scaling)
-preprocessed_data2 <- preProcess(clean_data_test[, 4, drop = FALSE], method = c("center", "scale"))
-
-# Apply the transformation to the same column
-clean_data_test2 <- clean_data_test
-clean_data_test2[, 4] <- predict(preprocessed_data2, clean_data_test2[, 4, drop = FALSE])
-
-
-
-# Create dummy variables for train dataset
-dummy_model_clean_train2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
-                                          Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
-                                          Vict.Descent.Description, 
-                                      data = clean_data_train2)
-
-# Apply the transformation
-dummy_clean_train2 <- predict(dummy_model_clean_train2, newdata = clean_data_train2)
-
-# Convert to a data frame
-dummy_clean_train2 <- as.data.frame(dummy_clean_train2)
-
-
-
-
-# Create dummy variables for test dataset
-dummy_model_clean_test2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
-                                          Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
-                                          Vict.Descent.Description, 
-                                      data = clean_data_test2)
-
-# Apply the transformation
-dummy_clean_test2 <- predict(dummy_model_clean_test2, newdata = clean_data_test2)
-
-# Convert to a data frame
-dummy_clean_test2 <- as.data.frame(dummy_clean_test2)
-
-
-
-#Converting data to proper input for Keras DNN
-X_train <- as.matrix(dummy_clean_train2[,-c(74,75)])
-Y_train <- as.matrix(dummy_clean_train2[,c(74,75)])
-Y_train <- apply(Y_train, 1, function(x) which.max(x) - 1)
-
-
-X_test <- as.matrix(dummy_clean_test2[,-c(74,75)])
-Y_test <- as.matrix(dummy_clean_test2[,c(74,75)])
-Y_test <- apply(Y_test, 1, function(x) which.max(x) - 1)
-
-
-
-
-#Activation Function
-activation_function <- function() {
-    dnn_class_model <- keras_model_sequential() %>%
-        layer_dense(units = 50, activation = 'relu',
-                    input_shape = c(ncol(X_train))) %>%
-        layer_dense(units = 50, activation = 'relu') %>%
-        layer_dense(units = 1, activation = 'sigmoid') %>%
-        compile(optimizer = 'adam',
-                loss = 'binary_crossentropy',
-                metrics = 'accuracy')
-}
-
-#Running Model
-dnn_class_model <- activation_function()
-results_dnn <- dnn_class_model %>%
-    keras::fit(x = X_train, y = Y_train,
-        epochs = 30,
-        validation_split = 0.2,
-        verbose = 0,
-        batch_size = 128)
-
-#Visualizing Model Performance
-plot(results_dnn,
-     smooth = F)
-
-#Obtaining Predictions
-Y_test_pred <- predict(object = dnn_class_model, x = X_test)
-
-#Computing AUC
-library(pROC)
-Test_dnn <- cbind(Y_test_pred, Y_test)
-Test_dnn <- as.data.frame(Test)
-
-#AUC:
-Test_dnn_auc <- roc(Test_dnn$Y_test, Test_dnn$V1)
-
-#Converting probabilities to Predictions using threshold of 0.5
-Test_dnn$V1 <- ifelse(Test_dnn$V1 > 0.5,1,0)
-Test_dnn$V1 <- as.factor(Test_dnn$V1)
-Test_dnn$Y_test <- as.factor(Test_dnn$Y_test)
-
-
-#Confusion Matrix DNN
-cm_dnn <- confusionMatrix(Test_dnn$Y_test, Test_dnn$V1)
-cm_dnn
-
-
-# Fitting Naive Bayes -----------------------------------------------------
-library(naivebayes)
-extra_clean_train_nb <- extra_clean_train
-extra_clean_train_nb <- extra_clean_train_nb[,-12]
-
-nb_grid <- expand.grid(usekernel = c(TRUE, FALSE),
-                       laplace = c(0, 0.5, 1), 
-                       adjust = c(0.75, 1, 1.25, 1.5))
-
-tr_control_nb <- trainControl(
-    method = "repeatedcv",  
-    number = 10,            
-    repeats = 3,            
-    allowParallel = TRUE   
-)
-
-nb_fit <- caret::train(
-    Legal_Action ~ .,           
-    data = extra_clean_train_nb, 
-    method = "naive_bayes",               
-    trControl = tr_control_nb,
-    tuneGrid = nb_grid
-)
-
-#Checking model optimal parameters
-nb_fit$finalModel$tuneValue
-
-#Visualizing tuning process
-nb_fit_plot <- plot(nb_fit)
-nb_fit_plot
-
-# Performing classification 
-predictions_nb1 <- predict(nb_fit, newdata = clean_data_test_list[[31]])
-confusion_mat_nb1 <- confusionMatrix(predictions_nb1, clean_data_test_list[[31]]$Legal_Action)
-
-#Creating accuracy and confusion matrices vectors
-accuracy_vector_nb <- numeric(length(1:30))
-conf_mat_list_nb <- vector("list",length(1:30))
-
-results_nb <- foreach (i = 1:30, 
-                        .packages = c("caret", "dplyr", "naivebayes")) %dopar% {
-                            #Optimal Parameters
-                            laplace_param <- nb_fit$finalModel$tuneValue$laplace
-                            usekernel_param <- nb_fit$finalModel$tuneValue$usekernel
-                            adjust_param <- nb_fit$finalModel$tuneValue$adjust
-                            
-                            # Training the Naive Bayes model 30 times w/optimal parameters
-                            nb_model <- caret::train(
-                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                                data = oversampled_data_list[[i]],
-                                method = "naive_bayes",
-                                trControl = trainControl(method = "none"),
-                                tuneGrid = expand.grid(.laplace = laplace_param, .usekernel = usekernel_param, .adjust = adjust_param) 
-                            )
-                            
-                            #Confusion Matrix of final model predicting Resolved Case
-                            predictions_nb <- predict(nb_model, newdata = clean_data_test_list[[i]])
-                            confusion_mat_nb <- confusionMatrix(predictions_nb, clean_data_test_list[[i]]$Legal_Action)
-                            
-                            accuracy_vector_nb[i] <- confusion_mat_nb$overall['Accuracy']
-                            
-                            list(confusion_matrix = confusion_mat_nb,
-                                 accuracy = confusion_mat_nb$overall['Accuracy']
-                            )
-                        }
-
-for (i in 1:length(results_nb)){
-    conf_mat_list_nb[[i]] <- results_nb[[i]]$confusion_matrix
-    accuracy_vector_nb[i] <- results_nb[[i]]$accuracy
-}
-accuracy_vector_nb <- unlist(accuracy_vector_nb)
-
-
-cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting if case was resolved\n")
-mean_nb_vec  <- mean(accuracy_vector_nb)
-
-#standard error
-std_error_nb <- sd(accuracy_vector_nb) / sqrt(30)
-
-#critical t value for 95% CI
-critical_value_nb <- qt(0.975, df = 30 - 1)
-
-#confidence interval
-lower_ci_nb <- mean_nb_vec - (critical_value_nb * std_error_nb)
-upper_ci_nb <- mean_nb_vec + (critical_value_nb * std_error_nb)
-
-# 95% CI
-cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nb, ", ", upper_ci_nb, "]\n")
-
-
-#Finding Index of accuracy value closest to mean
-closest_index_nb <- which.min(abs(accuracy_vector_nb - mean_nb_vec))
-
-
-#Confusion Matrix of Model closest to mean accuracy
-print(conf_mat_list_nb[closest_index_nb])
-
-
-
-
-
-
+# library(keras)
+# #Scaling Age in Train
+# # Preprocess only the 4th column (centering and scaling)
+# preprocessed_data <- preProcess(clean_data_train[, 4, drop = FALSE], method = c("center", "scale"))
+# 
+# # Apply the transformation to the same column
+# clean_data_train2 <- clean_data_train
+# clean_data_train2[, 4] <- predict(preprocessed_data, clean_data_train2[, 4, drop = FALSE])
+# 
+# #Scaling Age in Test
+# # Preprocess only the 4th column (centering and scaling)
+# preprocessed_data2 <- preProcess(clean_data_test[, 4, drop = FALSE], method = c("center", "scale"))
+# 
+# # Apply the transformation to the same column
+# clean_data_test2 <- clean_data_test
+# clean_data_test2[, 4] <- predict(preprocessed_data2, clean_data_test2[, 4, drop = FALSE])
+# 
+# 
+# 
+# # Create dummy variables for train dataset
+# dummy_model_clean_train2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
+#                                           Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
+#                                           Vict.Descent.Description, 
+#                                       data = clean_data_train2)
+# 
+# # Apply the transformation
+# dummy_clean_train2 <- predict(dummy_model_clean_train2, newdata = clean_data_train2)
+# 
+# # Convert to a data frame
+# dummy_clean_train2 <- as.data.frame(dummy_clean_train2)
+# 
+# 
+# 
+# 
+# # Create dummy variables for test dataset
+# dummy_model_clean_test2 <- dummyVars( ~ AREA + Part.1.2 + Crm.Cd + Legal_Action + Vict.Age + Vict.Sex + Premis.Cd + 
+#                                           Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + 
+#                                           Vict.Descent.Description, 
+#                                       data = clean_data_test2)
+# 
+# # Apply the transformation
+# dummy_clean_test2 <- predict(dummy_model_clean_test2, newdata = clean_data_test2)
+# 
+# # Convert to a data frame
+# dummy_clean_test2 <- as.data.frame(dummy_clean_test2)
+# 
+# 
+# 
+# #Converting data to proper input for Keras DNN
+# X_train <- as.matrix(dummy_clean_train2[,-c(74,75)])
+# Y_train <- as.matrix(dummy_clean_train2[,c(74,75)])
+# Y_train <- apply(Y_train, 1, function(x) which.max(x) - 1)
+# 
+# 
+# X_test <- as.matrix(dummy_clean_test2[,-c(74,75)])
+# Y_test <- as.matrix(dummy_clean_test2[,c(74,75)])
+# Y_test <- apply(Y_test, 1, function(x) which.max(x) - 1)
+# 
+# 
+# 
+# 
+# #Activation Function
+# activation_function <- function() {
+#     dnn_class_model <- keras_model_sequential() %>%
+#         layer_dense(units = 50, activation = 'relu',
+#                     input_shape = c(ncol(X_train))) %>%
+#         layer_dense(units = 50, activation = 'relu') %>%
+#         layer_dense(units = 1, activation = 'sigmoid') %>%
+#         compile(optimizer = 'adam',
+#                 loss = 'binary_crossentropy',
+#                 metrics = 'accuracy')
+# }
+# 
+# #Running Model
+# dnn_class_model <- activation_function()
+# results_dnn <- dnn_class_model %>%
+#     keras::fit(x = X_train, y = Y_train,
+#         epochs = 30,
+#         validation_split = 0.2,
+#         verbose = 0,
+#         batch_size = 128)
+# 
+# #Visualizing Model Performance
+# plot(results_dnn,
+#      smooth = F)
+# 
+# #Obtaining Predictions
+# Y_test_pred <- predict(object = dnn_class_model, x = X_test)
+# 
+# #Computing AUC
+# library(pROC)
+# Test_dnn <- cbind(Y_test_pred, Y_test)
+# Test_dnn <- as.data.frame(Test)
+# 
+# #AUC:
+# Test_dnn_auc <- roc(Test_dnn$Y_test, Test_dnn$V1)
+# 
+# #Converting probabilities to Predictions using threshold of 0.5
+# Test_dnn$V1 <- ifelse(Test_dnn$V1 > 0.5,1,0)
+# Test_dnn$V1 <- as.factor(Test_dnn$V1)
+# Test_dnn$Y_test <- as.factor(Test_dnn$Y_test)
+# 
+# 
+# #Confusion Matrix DNN
+# cm_dnn <- confusionMatrix(Test_dnn$Y_test, Test_dnn$V1)
+# cm_dnn
+# 
+# 
+# # Fitting Naive Bayes -----------------------------------------------------
+# library(naivebayes)
+# extra_clean_train_nb <- extra_clean_train
+# extra_clean_train_nb <- extra_clean_train_nb[,-12]
+# 
+# nb_grid <- expand.grid(usekernel = c(TRUE, FALSE),
+#                        laplace = c(0, 0.5, 1), 
+#                        adjust = c(0.75, 1, 1.25, 1.5))
+# 
+# tr_control_nb <- trainControl(
+#     method = "repeatedcv",  
+#     number = 10,            
+#     repeats = 3,            
+#     allowParallel = TRUE   
+# )
+# 
+# nb_fit <- caret::train(
+#     Legal_Action ~ .,           
+#     data = extra_clean_train_nb, 
+#     method = "naive_bayes",               
+#     trControl = tr_control_nb,
+#     tuneGrid = nb_grid
+# )
+# 
+# #Checking model optimal parameters
+# nb_fit$finalModel$tuneValue
+# 
+# #Visualizing tuning process
+# nb_fit_plot <- plot(nb_fit)
+# nb_fit_plot
+# 
+# # Performing classification 
+# predictions_nb1 <- predict(nb_fit, newdata = clean_data_test_list[[31]])
+# confusion_mat_nb1 <- confusionMatrix(predictions_nb1, clean_data_test_list[[31]]$Legal_Action)
+# 
+# #Creating accuracy and confusion matrices vectors
+# accuracy_vector_nb <- numeric(length(1:30))
+# conf_mat_list_nb <- vector("list",length(1:30))
+# 
+# results_nb <- foreach (i = 1:30, 
+#                         .packages = c("caret", "dplyr", "naivebayes")) %dopar% {
+#                             #Optimal Parameters
+#                             laplace_param <- nb_fit$finalModel$tuneValue$laplace
+#                             usekernel_param <- nb_fit$finalModel$tuneValue$usekernel
+#                             adjust_param <- nb_fit$finalModel$tuneValue$adjust
+#                             
+#                             # Training the Naive Bayes model 30 times w/optimal parameters
+#                             nb_model <- caret::train(
+#                                 Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                                 data = oversampled_data_list[[i]],
+#                                 method = "naive_bayes",
+#                                 trControl = trainControl(method = "none"),
+#                                 tuneGrid = expand.grid(.laplace = laplace_param, .usekernel = usekernel_param, .adjust = adjust_param) 
+#                             )
+#                             
+#                             #Confusion Matrix of final model predicting Resolved Case
+#                             predictions_nb <- predict(nb_model, newdata = clean_data_test_list[[i]])
+#                             confusion_mat_nb <- confusionMatrix(predictions_nb, clean_data_test_list[[i]]$Legal_Action)
+#                             
+#                             accuracy_vector_nb[i] <- confusion_mat_nb$overall['Accuracy']
+#                             
+#                             list(confusion_matrix = confusion_mat_nb,
+#                                  accuracy = confusion_mat_nb$overall['Accuracy']
+#                             )
+#                         }
+# 
+# for (i in 1:length(results_nb)){
+#     conf_mat_list_nb[[i]] <- results_nb[[i]]$confusion_matrix
+#     accuracy_vector_nb[i] <- results_nb[[i]]$accuracy
+# }
+# accuracy_vector_nb <- unlist(accuracy_vector_nb)
+# 
+# 
+# cat("Creating 95% Confidence Interval for Accuracy of Model 
+#     predicting if case was resolved\n")
+# mean_nb_vec  <- mean(accuracy_vector_nb)
+# 
+# #standard error
+# std_error_nb <- sd(accuracy_vector_nb) / sqrt(30)
+# 
+# #critical t value for 95% CI
+# critical_value_nb <- qt(0.975, df = 30 - 1)
+# 
+# #confidence interval
+# lower_ci_nb <- mean_nb_vec - (critical_value_nb * std_error_nb)
+# upper_ci_nb <- mean_nb_vec + (critical_value_nb * std_error_nb)
+# 
+# # 95% CI
+# cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nb, ", ", upper_ci_nb, "]\n")
+# 
+# 
+# #Finding Index of accuracy value closest to mean
+# closest_index_nb <- which.min(abs(accuracy_vector_nb - mean_nb_vec))
+# 
+# 
+# #Confusion Matrix of Model closest to mean accuracy
+# print(conf_mat_list_nb[closest_index_nb])
 
 # Fitting Logistic Regression ---------------------------------------------
 library(pROC)
@@ -893,14 +752,10 @@ logit_gridsearch <- caret::train( Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict
 #Optimal Parameters
 logit_gridsearch$bestTune
 
-
-
 #Creating empty lists
 accuracy_vector_logit <- numeric(length(1:30))
 conf_mat_list_logit <- vector("list",length(1:30))
 auc_list_logit <- numeric(length(1:30))
-
-
 
 results_logit <- foreach (i = 1:30, 
                        .packages = c("caret", "dplyr", "pROC")) %dopar% {
@@ -945,6 +800,7 @@ for (i in 1:length(results_logit)){
     auc_list_logit[[i]] <- results_logit[[i]]$auc
     
 }
+
 accuracy_vector_logit <- unlist(accuracy_vector_logit)
 
 cat("Creating 95% Confidence Interval for Accuracy of Model 
@@ -975,77 +831,70 @@ print(conf_mat_list_logit[closest_index_logit])
 #AUC of Model closest to mean
 print(auc_list_logit[closest_index_logit])
 
-
-
-
-
-
-
-
 # Fitting KNN -------------------------------------------------------------
 
 # Train the kNN model with automatic tuning of k using tuneLength
-tr_control_knn <- trainControl(method = "repeatedcv", 
-                               repeats = 10,
-                               allowParallel = TRUE)  
-
-#Creating empty lists
-accuracy_vector_knn <- numeric(length(1:30))
-conf_mat_list_knn <- vector("list",length(1:30))
-
-
-results_knn <- foreach (i = 1:30, 
-                       .packages = c("caret", "dplyr")) %dopar% {
-                           # Training the Random Forest model 30 times w/optimal parameters
-                           knn_model <- caret::train(
-                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
-                               data = oversampled_data_list[[i]],
-                               method = "knn",
-                               trControl = tr_control_knn,
-                               tuneLength = 20)
-                           
-                           #Confusion Matrix of final model predicting Resolved Case
-                           predictions_knn <- predict(knn_model, newdata = clean_data_test_list[[i]])
-                           confusion_mat_knn <- confusionMatrix(predictions_knn, clean_data_test_list[[i]]$Legal_Action)
-                           
-                           accuracy_vector_knn[i] <- confusion_mat_knn$overall['Accuracy']
-
-                           list(confusion_matrix = confusion_mat_knn,
-                                accuracy = confusion_mat_knn$overall['Accuracy']
-                                )
-                       }
-
-for (i in 1:length(results_knn)){
-    conf_mat_list_knn[[i]] <- results_knn[[i]]$confusion_matrix
-    accuracy_vector_knn[i] <- results_knn[[i]]$accuracy
-}
-accuracy_vector_knn <- unlist(accuracy_vector_knn)
-
-
-cat("Creating 95% Confidence Interval for Accuracy of Model 
-    predicting if case was resolved\n")
-mean_knn_vec  <- mean(accuracy_vector_knn)
-
-#standard error
-std_error_knn <- sd(accuracy_vector_knn) / sqrt(30)
-
-#critical t value for 95% CI
-critical_value_knn <- qt(0.975, df = 30 - 1)
-
-#confidence interval
-lower_ci_knn <- mean_knn_vec - (critical_value_knn * std_error_knn)
-upper_ci_knn <- mean_knn_vec + (critical_value_knn * std_error_knn)
-
-# 95% CI
-cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_knn, ", ", upper_ci_knn, "]\n")
-
-
-#Finding Index of accuracy value closest to mean
-closest_index_knn <- which.min(abs(accuracy_vector_knn - mean_knn_vec))
-
-
-#Confusion Matrix of Model closest to mean accuracy
-print(conf_mat_list_knn[closest_index_knn])
+# tr_control_knn <- trainControl(method = "repeatedcv", 
+#                                repeats = 10,
+#                                allowParallel = TRUE)  
+# 
+# #Creating empty lists
+# accuracy_vector_knn <- numeric(length(1:30))
+# conf_mat_list_knn <- vector("list",length(1:30))
+# 
+# 
+# results_knn <- foreach (i = 1:30, 
+#                        .packages = c("caret", "dplyr")) %dopar% {
+#                            # Training the Random Forest model 30 times w/optimal parameters
+#                            knn_model <- caret::train(
+#                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+#                                data = oversampled_data_list[[i]],
+#                                method = "knn",
+#                                trControl = tr_control_knn,
+#                                tuneLength = 20)
+#                            
+#                            #Confusion Matrix of final model predicting Resolved Case
+#                            predictions_knn <- predict(knn_model, newdata = clean_data_test_list[[i]])
+#                            confusion_mat_knn <- confusionMatrix(predictions_knn, clean_data_test_list[[i]]$Legal_Action)
+#                            
+#                            accuracy_vector_knn[i] <- confusion_mat_knn$overall['Accuracy']
+# 
+#                            list(confusion_matrix = confusion_mat_knn,
+#                                 accuracy = confusion_mat_knn$overall['Accuracy']
+#                                 )
+#                        }
+# 
+# for (i in 1:length(results_knn)){
+#     conf_mat_list_knn[[i]] <- results_knn[[i]]$confusion_matrix
+#     accuracy_vector_knn[i] <- results_knn[[i]]$accuracy
+# }
+# accuracy_vector_knn <- unlist(accuracy_vector_knn)
+# 
+# 
+# cat("Creating 95% Confidence Interval for Accuracy of Model 
+#     predicting if case was resolved\n")
+# mean_knn_vec  <- mean(accuracy_vector_knn)
+# 
+# #standard error
+# std_error_knn <- sd(accuracy_vector_knn) / sqrt(30)
+# 
+# #critical t value for 95% CI
+# critical_value_knn <- qt(0.975, df = 30 - 1)
+# 
+# #confidence interval
+# lower_ci_knn <- mean_knn_vec - (critical_value_knn * std_error_knn)
+# upper_ci_knn <- mean_knn_vec + (critical_value_knn * std_error_knn)
+# 
+# # 95% CI
+# cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_knn, ", ", upper_ci_knn, "]\n")
+# 
+# 
+# #Finding Index of accuracy value closest to mean
+# closest_index_knn <- which.min(abs(accuracy_vector_knn - mean_knn_vec))
+# 
+# 
+# #Confusion Matrix of Model closest to mean accuracy
+# print(conf_mat_list_knn[closest_index_knn])
 
 
 # Fitting SVM -------------------------------------------------------------
@@ -1144,21 +993,12 @@ upper_ci_svm_linear <- mean_svm_linear_vec + (critical_value_svm_linear * std_er
 # 95% CI
 cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_svm_linear, ", ", upper_ci_svm_linear, "]\n")
 
-
 #Finding Index of accuracy value closest to mean
 closest_index_svm_linear <- which.min(abs(accuracy_vector_svm_linear - mean_svm_linear_vec))
-
 
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_svm_linear[closest_index_svm_linear])
 
 stopCluster(cl)
 unregister_dopar()
-
-
-
-
-
-
-
 
