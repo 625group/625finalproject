@@ -1,6 +1,29 @@
 ---
-title: "625 Final Report"
-output: html_document
-date: "`r Sys.Date()`"
+title: "Predicting Resolved and Unresolved Criminal Cases Using Logistic Regression"
+author: "Kelly Li, Raam Pravin, Xavier Lee, Zoe Lu"
+output:
+  pdf_document: default
 ---
 
+# Abstract
+
+
+
+
+
+# Introduction
+
+
+
+
+# Methods 
+
+
+
+
+# Results
+
+
+
+
+# Conclusins and Limitations
