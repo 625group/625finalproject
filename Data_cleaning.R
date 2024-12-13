@@ -223,3 +223,8 @@ filtered_subset14 <- na.omit(filtered_subset13)
 
 clean_data <- filtered_subset14
 
+
+# Export data into a new csv file
+# write.csv(clean_data, file = "/Users/kellyli/Desktop/clean_data.csv")
+
+
