@@ -1,6 +1,6 @@
 ---
 title: "Final_Cleaned_code"
-author: "Zoe Lu"
+author: "Kelly Li, Raam Pravin, Xavier Lee, Zoe Lu"
 date: "2024-12-13"
 output: pdf_document
 ---
@@ -14,28 +14,16 @@ output: pdf_document
 library(Hmisc)
 library(ggplot2)
 library(psych)
-# library(GGally)
-# library(DescTools)
 library(tidyverse)
 library(caret)
 library(e1071)
-# library(rattle)
-# library(stats)
-# library(MASS)
-# library(car)
-# library(data.table)
-# library(ROSE)
-# library(tuneRanger)
-# library(foreach)
-# library(doParallel)
-# library(glmnet)
 library(ggpubr)
 library(doParallel)
 ```
 
 # Reading Data
 ```{r}
-raw <- read.csv("Crime_Data_from_2010_to_2019_20241126.csv")
+raw <- read.csv("/Users/zoelu/Downloads/Crime_Data_from_2010_to_2019_20241126.csv")
 ```
 
 # At glance view of the data
@@ -274,21 +262,15 @@ ggplot(clean_data, aes(x = Vict.Descent.Description)) +
     labs(title = "Number of Crimes Per Victim Race/Ethnicity", x = "Victim Race/Ethnicity", y = "Number of Crimes") 
 
 # legal action barchart
-plot1 <- barchart_fcn("Legal_Action",
+barchart_fcn("Legal_Action",
              title = "Count of Ongoing Investions vs Closed",
              x = "Case Status", y = "Number of Cases")
 
 # Number of Crimes Per Victim Sex by Case Status
-plot2 <- ggplot(clean_data, aes(x = Vict.Sex, fill = Legal_Action)) +
+ggplot(clean_data, aes(x = Vict.Sex, fill = Legal_Action)) +
     geom_bar(color = "black", position = "dodge") +
     labs(title = "Number of Crimes Per Victim Sex", x = "Victim Sex", y = "Number of Crimes") +
     theme_minimal()
-
-# arrange plot in one graph
-figure <- ggarrange(plot1, plot2,
-                    ncol = 2, nrow = 1)
-figure
-
 ```
 
 # EDA: Box Plots/Histograms for Continuous
@@ -369,7 +351,7 @@ extra_clean_train <- oversampled_data_list[[31]]
 
 ```
 
-# Fitting Logistic Regression
+# Running Logistic Regression
 ```{r}
 library(pROC)
 trControl_log <- trainControl(method = 'repeatedcv',
@@ -466,6 +448,210 @@ print(conf_mat_list_logit[closest_index_logit])
 print(auc_list_logit[closest_index_logit])
 ```
 
+# Running Neural Network
+```{r}
+library(NeuralNetTools)
+library(nnet)
+library(NeuralSens)
+###          ###
+###Neural Net###
+###          ###
+
+tr_control_nnet <- trainControl(
+    method = "cv",
+    number = 5,
+    allowParallel = TRUE)
+
+#Neural Net
+fit.nnet <- caret::train(Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                         data = extra_clean_train,
+                         method = "nnet",
+                         trControl = tr_control_nnet,
+                         tuneGrid = expand.grid(size=c(1:5),
+                                                 decay=c(0,0.1,0.01)),
+                         skip = TRUE)
+pred.nnet <- predict(fit.nnet,clean_data_test_list[[31]])
+confusionMatrix(table(clean_data_test_list[[31]]$Legal_Action, pred.nnet))
+
+#Optimal Parameters
+fit.nnet$bestTune
+
+
+#Creating empty lists
+accuracy_vector_nnet <- numeric(length(1:30))
+conf_mat_list_nnet <- vector("list",length(1:30))
+variable_importance_list_nnet <- vector("list",length(1:30))
+
+
+tr_control2_nnet <- trainControl(
+    method = "none",
+    allowParallel = TRUE)
+
+results_nnet <- foreach (i = 1:30,
+                       .packages = c("caret", "dplyr", "nnet")) %dopar% {
+                           num_neurons <- fit.nnet$bestTune$size
+                           decay_rate <- fit.nnet$bestTune$decay
+
+                           # Training the neural net model 30 times w/1 neuron
+                           nnet_model <- caret::train(
+                               Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                               data = oversampled_data_list[[i]],
+                               method = "nnet",
+                               tuneGrid = expand.grid(size=num_neurons,decay=decay_rate),
+                               trControl = tr_control2_nnet,
+                               skip = TRUE
+                           )
+
+                           #Confusion Matrix of final model predicting Resolved Case
+                           predictions_nnet <- predict(nnet_model, newdata = clean_data_test_list[[i]])
+                           confusion_mat_nnet <- confusionMatrix(predictions_nnet, clean_data_test_list[[i]]$Legal_Action)
+
+                           accuracy_vector_nnet[i] <- confusion_mat_nnet$overall['Accuracy']
+
+                           var_importance_nnet <- varImp(nnet_model)
+                           variable_importance_list_nnet[[i]] <- var_importance_nnet
+
+                           list(
+                               confusion_matrix = confusion_mat_nnet,
+                               accuracy = confusion_mat_nnet$overall['Accuracy'],
+                               variable_importance = var_importance_nnet
+                           )
+                       }
+
+for (i in 1:length(results_nnet)){
+    conf_mat_list_nnet[[i]] <- results_nnet[[i]]$confusion_matrix
+    accuracy_vector_nnet[i] <- results_nnet[[i]]$accuracy
+    variable_importance_list_nnet[[i]] <- results_nnet[[i]]$variable_importance
+
+}
+accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
+
+cat("Creating 95% Confidence Interval for Accuracy of Model
+    predicting if case was resolved")
+mean_nnet_vec  <- mean(accuracy_vector_nnet)
+
+#standard error
+std_error_nnet <- sd(accuracy_vector_nnet) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_nnet <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_nnet <- mean_nnet_vec - (critical_value_nnet * std_error_nnet)
+upper_ci_nnet <- mean_nnet_vec + (critical_value_nnet * std_error_nnet)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nnet, ", ", upper_ci_nnet, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_nnet <- which.min(abs(accuracy_vector_nnet - mean_nnet_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_nnet[closest_index_nnet])
+
+```
+
+# Running Naive Bayes
+```{r}
+library(naivebayes)
+extra_clean_train_nb <- extra_clean_train
+extra_clean_train_nb <- extra_clean_train_nb[,-12]
+
+nb_grid <- expand.grid(usekernel = c(TRUE, FALSE),
+                       laplace = c(0, 0.5, 1),
+                       adjust = c(0.75, 1, 1.25, 1.5))
+
+tr_control_nb <- trainControl(
+    method = "repeatedcv",
+    number = 10,
+    repeats = 3,
+    allowParallel = TRUE
+)
+
+nb_fit <- caret::train(
+    Legal_Action ~ .,
+    data = extra_clean_train_nb,
+    method = "naive_bayes",
+    trControl = tr_control_nb,
+    tuneGrid = nb_grid
+)
+
+#Checking model optimal parameters
+nb_fit$finalModel$tuneValue
+
+#Visualizing tuning process
+nb_fit_plot <- plot(nb_fit)
+nb_fit_plot
+
+# Performing classification
+predictions_nb1 <- predict(nb_fit, newdata = clean_data_test_list[[31]])
+confusion_mat_nb1 <- confusionMatrix(predictions_nb1, clean_data_test_list[[31]]$Legal_Action)
+
+#Creating accuracy and confusion matrices vectors
+accuracy_vector_nb <- numeric(length(1:30))
+conf_mat_list_nb <- vector("list",length(1:30))
+
+results_nb <- foreach (i = 1:30,
+                        .packages = c("caret", "dplyr", "naivebayes")) %dopar% {
+                            #Optimal Parameters
+                            laplace_param <- nb_fit$finalModel$tuneValue$laplace
+                            usekernel_param <- nb_fit$finalModel$tuneValue$usekernel
+                            adjust_param <- nb_fit$finalModel$tuneValue$adjust
+
+                            # Training the Naive Bayes model 30 times w/optimal parameters
+                            nb_model <- caret::train(
+                                Legal_Action ~ AREA + Part.1.2 + Crm.Cd + Vict.Age + Vict.Sex + Premis.Cd + Weapon.Used.Cd + date_occur_report_difference + time_occur_cat + Vict.Descent.Description,
+                                data = oversampled_data_list[[i]],
+                                method = "naive_bayes",
+                                trControl = trainControl(method = "none"),
+                                tuneGrid = expand.grid(.laplace = laplace_param, .usekernel = usekernel_param, .adjust = adjust_param)
+                            )
+
+                            #Confusion Matrix of final model predicting Resolved Case
+                            predictions_nb <- predict(nb_model, newdata = clean_data_test_list[[i]])
+                            confusion_mat_nb <- confusionMatrix(predictions_nb, clean_data_test_list[[i]]$Legal_Action)
+
+                            accuracy_vector_nb[i] <- confusion_mat_nb$overall['Accuracy']
+
+                            list(confusion_matrix = confusion_mat_nb,
+                                 accuracy = confusion_mat_nb$overall['Accuracy']
+                            )
+                        }
+
+for (i in 1:length(results_nb)){
+    conf_mat_list_nb[[i]] <- results_nb[[i]]$confusion_matrix
+    accuracy_vector_nb[i] <- results_nb[[i]]$accuracy
+}
+accuracy_vector_nb <- unlist(accuracy_vector_nb)
+
+
+cat("Creating 95% Confidence Interval for Accuracy of Model
+    predicting if case was resolved\n")
+mean_nb_vec  <- mean(accuracy_vector_nb)
+
+#standard error
+std_error_nb <- sd(accuracy_vector_nb) / sqrt(30)
+
+#critical t value for 95% CI
+critical_value_nb <- qt(0.975, df = 30 - 1)
+
+#confidence interval
+lower_ci_nb <- mean_nb_vec - (critical_value_nb * std_error_nb)
+upper_ci_nb <- mean_nb_vec + (critical_value_nb * std_error_nb)
+
+# 95% CI
+cat("95% Confidence Interval Predicting if Case Resolved: [", lower_ci_nb, ", ", upper_ci_nb, "]\n")
+
+
+#Finding Index of accuracy value closest to mean
+closest_index_nb <- which.min(abs(accuracy_vector_nb - mean_nb_vec))
+
+
+#Confusion Matrix of Model closest to mean accuracy
+print(conf_mat_list_nb[closest_index_nb])
+```
 
 
 
