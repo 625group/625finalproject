@@ -715,7 +715,41 @@ print(auc_list_nb[closest_index_nb])
 ```
 
 
+```{r}
 
+
+# Define a consistent color palette using simple color names
+model_colors <- c("Logistic Regression" = "lightblue", 
+                  "Neural Net" = "purple", 
+                  "Naive Bayes" = "darkblue")
+
+# Plot the AUC values
+ggplot(auc_values, aes(x = Model, y = AUC, fill = Model)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = model_colors) +  # Use the defined colors
+  labs(title = "AUC Comparison for Models (Closest to Mean Accuracy)", 
+       x = "Model", 
+       y = "AUC") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(fill = "none")
+
+# Plot the execution times
+ggplot(execution_times, aes(x = Model, y = ExecutionTime, fill = Model)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  scale_fill_manual(values = model_colors) +  # Use the same defined colors
+  labs(title = "Execution Time Comparison Across Models",
+       x = "Model",
+       y = "Execution Time (minutes)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(fill = "none")
+
+
+
+
+
+```
 
 
 
