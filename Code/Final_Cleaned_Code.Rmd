@@ -492,14 +492,14 @@ fit.nnet$bestTune
 accuracy_vector_nnet <- numeric(length(1:30))
 conf_mat_list_nnet <- vector("list",length(1:30))
 variable_importance_list_nnet <- vector("list",length(1:30))
-
+auc_list_nnet <- numeric(length(1:30))  # List for AUC
 
 tr_control2_nnet <- trainControl(
     method = "none",
     allowParallel = TRUE)
 
 results_nnet <- foreach (i = 1:30,
-                       .packages = c("caret", "dplyr", "nnet")) %dopar% {
+                       .packages = c("caret", "dplyr", "nnet", "pROC")) %dopar% {
                            num_neurons <- fit.nnet$bestTune$size
                            decay_rate <- fit.nnet$bestTune$decay
 
@@ -522,10 +522,22 @@ results_nnet <- foreach (i = 1:30,
                            var_importance_nnet <- varImp(nnet_model)
                            variable_importance_list_nnet[[i]] <- var_importance_nnet
 
+                           # AUC Calculation
+                           nnet_auc_pred <- predict(nnet_model, clean_data_test_list[[i]], 'prob')
+                           nnet_auc_pred <- cbind(nnet_auc_pred[,1], as.character(clean_data_test_list[[i]]$Legal_Action))
+                           nnet_auc_pred <- as.data.frame(nnet_auc_pred)
+                           nnet_auc_pred$V2 <- as.factor(nnet_auc_pred$V2)
+                           nnet_auc_pred$V1 <- as.numeric(nnet_auc_pred$V1)
+
+                           # AUC
+                           nnet_auc_roc <- roc(nnet_auc_pred$V2, nnet_auc_pred$V1)
+                           auc_list_nnet[i] <- nnet_auc_roc$auc[1]
+
                            list(
                                confusion_matrix = confusion_mat_nnet,
                                accuracy = confusion_mat_nnet$overall['Accuracy'],
-                               variable_importance = var_importance_nnet
+                               variable_importance = var_importance_nnet,
+                               auc = auc_list_nnet[i]
                            )
                        }
 
@@ -533,8 +545,9 @@ for (i in 1:length(results_nnet)){
     conf_mat_list_nnet[[i]] <- results_nnet[[i]]$confusion_matrix
     accuracy_vector_nnet[i] <- results_nnet[[i]]$accuracy
     variable_importance_list_nnet[[i]] <- results_nnet[[i]]$variable_importance
-
+    auc_list_nnet[i] <- results_nnet[[i]]$auc
 }
+
 accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
 
 end.time.nn <- Sys.time()
@@ -568,6 +581,9 @@ closest_index_nnet <- which.min(abs(accuracy_vector_nnet - mean_nnet_vec))
 
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_nnet[closest_index_nnet])
+
+# AUC of Model closest to mean
+print(auc_list_nnet[closest_index_nnet])
 
 ```
 
@@ -613,9 +629,10 @@ confusion_mat_nb1 <- confusionMatrix(predictions_nb1, clean_data_test_list[[31]]
 #Creating accuracy and confusion matrices vectors
 accuracy_vector_nb <- numeric(length(1:30))
 conf_mat_list_nb <- vector("list",length(1:30))
+auc_list_nb <- numeric(length(1:30))  # List for AUC
 
 results_nb <- foreach (i = 1:30,
-                        .packages = c("caret", "dplyr", "naivebayes")) %dopar% {
+                        .packages = c("caret", "dplyr", "naivebayes", "pROC")) %dopar% {
                             #Optimal Parameters
                             laplace_param <- nb_fit$finalModel$tuneValue$laplace
                             usekernel_param <- nb_fit$finalModel$tuneValue$usekernel
@@ -636,14 +653,27 @@ results_nb <- foreach (i = 1:30,
 
                             accuracy_vector_nb[i] <- confusion_mat_nb$overall['Accuracy']
 
+                            # AUC Calculation
+                            nb_auc_pred <- predict(nb_model, clean_data_test_list[[i]], 'prob')
+                            nb_auc_pred <- cbind(nb_auc_pred[,1], as.character(clean_data_test_list[[i]]$Legal_Action))
+                            nb_auc_pred <- as.data.frame(nb_auc_pred)
+                            nb_auc_pred$V2 <- as.factor(nb_auc_pred$V2)
+                            nb_auc_pred$V1 <- as.numeric(nb_auc_pred$V1)
+
+                            # AUC
+                            nb_auc_roc <- roc(nb_auc_pred$V2, nb_auc_pred$V1)
+                            auc_list_nb[i] <- nb_auc_roc$auc[1]
+
                             list(confusion_matrix = confusion_mat_nb,
-                                 accuracy = confusion_mat_nb$overall['Accuracy']
+                                 accuracy = confusion_mat_nb$overall['Accuracy'],
+                                 auc = auc_list_nb[i]
                             )
                         }
 
 for (i in 1:length(results_nb)){
     conf_mat_list_nb[[i]] <- results_nb[[i]]$confusion_matrix
     accuracy_vector_nb[i] <- results_nb[[i]]$accuracy
+    auc_list_nb[i] <- results_nb[[i]]$auc
 }
 accuracy_vector_nb <- unlist(accuracy_vector_nb)
 
@@ -678,9 +708,11 @@ closest_index_nb <- which.min(abs(accuracy_vector_nb - mean_nb_vec))
 
 #Confusion Matrix of Model closest to mean accuracy
 print(conf_mat_list_nb[closest_index_nb])
+
+# AUC of Model closest to mean
+print(auc_list_nb[closest_index_nb])
+
 ```
-
-
 
 
 
