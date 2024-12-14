@@ -6,9 +6,13 @@ output:
 ---
 
 # Abstract
+Los Angeles is a major city in the United States with crimes occurring frequently, ranging from small crimes such as theft to more serious crimes such as murder. Naturally, as a city with a lot of crimes, the Los Angeles Police Department (LAPD) often needs to evaluate how they handle certain cases and how much resources to put into select crimes. This project focuses on trying to predict whether crimes at the time of data reporting were marked as resolved or not using different machine learning methods as there is belief that there are underlying reasons for certain crimes being resolved sooner than others. Further research beyond this project hopes to use the best identified predicting model to look more in depth into the patterns of cases left unresolved to better aid the LAPD in deciding how they handle criminal cases. 
 
+The dataset for this project comes from the Data.Gov website, a government owned website, which contains all crimes reported by the LAPD from November 2020 to the day of download (November 26th, 2024) as data is constantly being added everyday. Methods of data cleaning and exploratory data analysis were conducted to understand the data better while parallelization was used to speed up the analysis time. To predict whether each case will be classified as resolved or unresolved, models such as logistic regression, neural network, and naive bayes were performed on multiple subsets of test and training datasets. To compare the performance of each model, the mean accuracy of each model was calculated using confusion matrices. 
 
-klnclkewsdnclksdn clksjdn cldn clkns aclkn clkasnclksnc
+The results of this study found that the model that best predicts whether each crime at reporting was resolved or not was the neural network model with a mean accuracy rate of around 75%. The next best model was the predictive logistic regression model which had a mean accuracy rate of about 76%. The performance of the neural network and logistic regression model were very similar. The worst performing model was naive bayes with only about a 68% accuracy rate. 
+
+In conclusion, using a logistic regression model or a neural network model best predicted whether a case was resolved or not at the time of reporting by the LAPD. In conjunction with additional research, this project can serve as a starting point into looking at whether new crimes that occur would end up being left open by the time it’s recorded into the LAPD data system. This project has many limitations that should be taken into account such as a lack of extensive knowledge in machine learning methods to conduct a full analysis and run more accurate models. Additional models can be run to potentially identify other models that have better predictive performance and further research into other important predictive features would be beneficial.
 
 
 # Introduction

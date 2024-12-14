@@ -421,10 +421,12 @@ for (i in 1:length(results_logit)){
 
 accuracy_vector_logit <- unlist(accuracy_vector_logit)
 
+# mean accuracy for logistic regression
+mean_logit_vec  <- mean(accuracy_vector_logit)
+mean_logit_vec
+
 cat("Creating 95% Confidence Interval for Accuracy of Model 
     predicting if case was resolved\n")
-mean_logit_vec  <- mean(accuracy_vector_logit)
-
 #standard error
 std_error_logit <- sd(accuracy_vector_logit) / sqrt(30)
 
@@ -526,10 +528,12 @@ for (i in 1:length(results_nnet)){
 }
 accuracy_vector_nnet <- unlist(accuracy_vector_nnet)
 
+# mean accuracy for neural network
+mean_nnet_vec  <- mean(accuracy_vector_nnet)
+mean_nnet_vec
+
 cat("Creating 95% Confidence Interval for Accuracy of Model
     predicting if case was resolved")
-mean_nnet_vec  <- mean(accuracy_vector_nnet)
-
 #standard error
 std_error_nnet <- sd(accuracy_vector_nnet) / sqrt(30)
 
@@ -627,10 +631,12 @@ for (i in 1:length(results_nb)){
 accuracy_vector_nb <- unlist(accuracy_vector_nb)
 
 
+# mean accuracy for naive bayes
+mean_nb_vec  <- mean(accuracy_vector_nb)
+mean_nb_vec
+
 cat("Creating 95% Confidence Interval for Accuracy of Model
     predicting if case was resolved\n")
-mean_nb_vec  <- mean(accuracy_vector_nb)
-
 #standard error
 std_error_nb <- sd(accuracy_vector_nb) / sqrt(30)
 
