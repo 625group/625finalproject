@@ -25,12 +25,12 @@ In conclusion, using a logistic regression model or a neural network model best 
 test test 2
 
 # Results
+
+# Conclusions and Limitations
 The results of this project show that the model that best predicts whether a crime at the time of LAPD’s data reporting has been resolved or not was the neural network model with an average accuracy of 76% across all subsets of data split into train and test sets. Similarly, the logistic regression model yielded similar results with a mean accuracy of 75%. The worst performing model was the neural network model which only had about a 68% accuracy rate. Using these results, this study hopes that it can help the LAPD predict whether future criminal cases that occur will end up being resolved by the time they report the data into their tracking system. Perhaps cases that are not resolved by the LAPD by the time of their tracking system reporting need more attention and resources or are just being neglected due to the crime’s severity level being low. Further research can also look into analyzing the patterns of cases that are not resolved at the time of reporting and identify similarities between these cases to better understand what types of crimes get resolved quicker than others. 
 
 This project has limitations and thus the results should not be generalized. The lack of extensive knowledge on all possible types of machine learning models means there are additional models left unexplored that could potentially be better at predicting whether cases are resolved or not. Additionally, there are better methods that can be formed to more accurately give insights and advice to the LAPD and how they choose to handle cases. For example, models predicting the length of time/ duration categories each case takes to get resolved can be explored and would also be more informative to the LAPD. More knowledge on how to implement these methods would be beneficial. Additionally, some computational challenges such as the handling of missing cases can be done better with more knowledge on missing data and efficiency of code can be further optimized. 
 
-
-# Conclusions and Limitations
 
 
 
