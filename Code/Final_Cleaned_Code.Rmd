@@ -718,7 +718,6 @@ print(auc_list_nb[closest_index_nb])
 ```{r}
 
 
-# Define a consistent color palette using simple color names
 model_colors <- c("Logistic Regression" = "lightblue", 
                   "Neural Net" = "purple", 
                   "Naive Bayes" = "darkblue")
