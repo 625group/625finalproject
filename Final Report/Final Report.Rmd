@@ -16,11 +16,10 @@ The results of this study found that the model that best predicts whether each c
 
 In conclusion, using a logistic regression model or a neural network model best predicted whether a case was resolved or not at the time of reporting by the LAPD. In conjunction with additional research, this project can serve as a starting point into looking at whether new crimes that occur would end up being left open by the time it’s recorded into the LAPD data system. This project has many limitations that should be taken into account such as a lack of extensive knowledge in machine learning methods to conduct a full analysis and run more accurate models. Additional models can be run to potentially identify other models that have better predictive performance and further research into other important predictive features would be beneficial. 
 
-
 # Introduction
+Unresolved criminal cases pose a significant challenge to law enforcement agencies worldwide. In Los Angeles, a substantial number of crimes occur annually, with some cases taking longer to resolve than others, and some remain unresolved. The inability to resolve cases not only leaves victims without justice and undermines public trust in the criminal justice system, but also poses a potential threat to the safety of the society. However, with limited resources, technologies, and funding, it is unrealistic for police departments to resolve all cases. According to a F.B.I released data, “police departments across the country are solving far fewer crimes than they did before 2020” (Asher, 2023). Meanwhile, researchers found that “despite steep declines in crime and major per capita spending increases, law enforcement now solves fewer one in seven crimes, a 41% decrease in solving crimes over the last 33 years” (Males, 2024). The decline in the number of resolved cases and the increasing number of crime cases draws our attention to the need to improve the efficiency of resolving crime cases.  
 
-
-
+This project aims to help the LAPD in allocating more resources on certain crime cases by addressing the critical problem of whether a crime case will be resolved or remain unresolved. Several variables were taken into considerations, including area, crime code, victims information, weapon usage, date, and categories. By developing a predictive model, we hope to identify factors that lead to the final decision of resolving crime cases, thereby helping LAPD prioritize cases and allocate resources more efficiently. 
 
 # Methods(Cleaning/Parallelizing)
 **Data Description:**  
@@ -66,8 +65,9 @@ The results of this project show that the model that best predicts whether a cri
 This project has limitations and thus the results should not be generalized. The lack of extensive knowledge on all possible types of machine learning models means there are additional models left unexplored that could potentially be better at predicting whether cases are resolved or not. Additionally, there are better methods that can be formed to more accurately give insights and advice to the LAPD and how they choose to handle cases. For example, models predicting the length of time/ duration categories each case takes to get resolved can be explored and would also be more informative to the LAPD. More knowledge on how to implement these methods would be beneficial. Additionally, some computational challenges such as the handling of missing cases can be done better with more knowledge on missing data and efficiency of code can be further optimized. 
 
 # References
-Asher, J. (2023, December 5). Police Departments Nationwide Are Struggling to Solve Crimes.The New York Times. https://www.nytimes.com/2023/12/05/opinion/police-crime-data.html
+Asher, J. (2023, December 5). *Police Departments Nationwide Are Struggling to Solve Crimes*.The New York Times. https://www.nytimes.com/2023/12/05/opinion/police-crime-data.html
+
+Males, M. (2024, February 13). *California Law Enforcement Agencies Are Spending More But Solving Fewer Crimes*. Center on Juvenile & Criminal Justice. https://www.cjcj.org/reports-publications/report/california-law-enforcement-agencies-are-spending-more-but-solving-fewer-crimes
 
 # Contributions
-
-
+All group members collaborated on the project; Raam Pravin headed coding, produced output, and finalized the manuscript. Kelly Li wrote the introduction. Raam Pravin wrote the methods. Xavier Lee wrote the results. Zoe Lu wrote abstract and conclusion. 
