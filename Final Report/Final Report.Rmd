@@ -3,10 +3,8 @@ title: "Predicting Resolved and Unresolved Criminal Cases Using Logistic Regress
 author: "Kelly Li, Raam Pravin, Xavier Lee, Zoe Lu"
 output:
   pdf_document: default
-header-includes:
-  - \usepackage{hyperref}
 ---
-**Project Repository Link:** https://github.com/625group/625finalproject/tree/main"
+**Project Repository Link:** https://github.com/625group/625finalproject/tree/main
 
 # Abstract
 Los Angeles is a major city in the United States with crimes occurring frequently, ranging from small crimes such as theft to more serious crimes such as murder. Naturally, as a city with a lot of crimes, the Los Angeles Police Department (LAPD) often needs to evaluate how they handle certain cases and how much resources to put into select crimes. This project focuses on trying to predict whether crimes at the time of data reporting for the LAPD’s tracking system were marked as resolved or not using different machine learning methods as there is belief that there are underlying reasons for certain crimes being resolved sooner than others. Further research beyond this project hopes to use the best identified predicting model to look more in depth into the patterns of cases left unresolved to better aid the LAPD in deciding how they handle criminal cases. 
