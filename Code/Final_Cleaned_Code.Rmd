@@ -717,12 +717,12 @@ print(auc_list_nb[closest_index_nb])
 
 ```{r}
 
-
+#Making colors match between graphs
 model_colors <- c("Logistic Regression" = "lightblue", 
                   "Neural Net" = "purple", 
                   "Naive Bayes" = "darkblue")
 
-# Plot the AUC values
+# Plot AUC 
 ggplot(auc_values, aes(x = Model, y = AUC, fill = Model)) +
   geom_bar(stat = "identity") +
   scale_fill_manual(values = model_colors) +  # Use the defined colors
@@ -733,7 +733,7 @@ ggplot(auc_values, aes(x = Model, y = AUC, fill = Model)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   guides(fill = "none")
 
-# Plot the execution times
+# Plot execution times
 ggplot(execution_times, aes(x = Model, y = ExecutionTime, fill = Model)) +
   geom_bar(stat = "identity", width = 0.6) +
   scale_fill_manual(values = model_colors) +  # Use the same defined colors
