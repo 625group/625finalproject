@@ -39,7 +39,13 @@ EDA revealed that a vast majority of the criminal incidents committed were one o
 EDA revealed that there were ages as low as 0 and as high as 120 for Victim Age, subsequently rows with Victim Ages less than or equal to 0 or higher than 100 were included. EDA also revealed that a very small minority of Victim Sex values were something other than Male or Female, these rows were also not included in the analysis. The final clean and re-coded dataset included 1,528,645 rows of 11 columns. A train and test data set were made from a 80/20 split from this final dataset.
 
 ***Computation:***  
-Since the dataset was very big and the goal of the analysis was to compare the performance of multiple algorithms(Logistic Regression, Naive Bayes, Neural Net) in predicting a binary outcome of whether a case had been resolved or not; the train and test data sets were equally partitioned into 31 smaller datasets. EDA revealed a concerning class imbalance in the outcome variable as the vast majority of cases had not been resolved so all 31 train datasets were bootstrapped until there was about a 50/50 frequency in the binary outcome variable. Each of the 31 resulting datasets had around 40,000 rows. Since the time needed to apply each of our classification algorithms would have been exceedingly long, parallel processing was used in order to speed up computation time. To evaluate the performance of each of the three algorithms the following steps were taken: 
+Three machine learning models were conducted and compared to determine the model that was best at predicting whether each case resolved or not.  
+
+1. Logistic Regression 
+2. Neural Network
+3. Naive Bayes  
+
+Since the dataset was very big and the goal of the analysis was to compare the performance of multiple algorithms in predicting a binary outcome of whether a case had been resolved or not; the train and test data sets were equally partitioned into 31 smaller datasets. EDA revealed a concerning class imbalance in the outcome variable as the vast majority of cases had not been resolved so all 31 train datasets were bootstrapped until there was about a 50/50 frequency in the binary outcome variable. Each of the 31 resulting datasets had around 40,000 rows. Since the time needed to apply each of our classification algorithms would have been exceedingly long, parallel processing was used in order to speed up computation time. To evaluate the performance of each of the three algorithms the following steps were taken: 
 1. A gridsearch was applied using the “extra” 31st dataset in order to obtain the optimal parameters for each algorithm
 2. Using the optimal parameters each algorithm was created using its corresponding train dataset and then tested using its external corresponding test dataset. Evaluation metrics such as accuracy, AUC(area under curve), and confusion matrices were stored in a list for each model.
 3. Using the vector of 30 accuracies from the 30 models created a 95% confidence interval was created to compare performance of all three models. The confusion matrix of the model with the closest accuracy to the mean accuracy for each algorithm was also returned. 
@@ -49,7 +55,7 @@ To determine the best model we assessed the accuracy, sensitivity, specificity, 
 
 It is clear from our results that our naive bayes is the weakest model of the three; it is neither the fastest model, nor excels at any metric we were assessing besides specificity. The similar AUC scores between our logistic regression model and neural network suggests that they are comparable in terms of classification ability. If classification is the bottom line, then logistic regression would prove to be the better model due to a significantly lower average run time. However, the two models drastically differ in their sensitivity and specificity rates as mentioned above. If correctly predicting a suspect will get caught after committing a crime has more value than correctly predicting a suspect won’t get caught, then the neural network could be the best option.
 
-```{r, out.width = "450px", echo = FALSE}
+```{r, out.width = "400px", echo = FALSE}
 knitr::include_graphics("/Users/zoelu/Downloads/auc_bar.png")
 ```
 
