@@ -3,6 +3,7 @@ title: "Predicting Resolved and Unresolved Criminal Cases Using Logistic Regress
 author: "Kelly Li, Raam Pravin, Xavier Lee, Zoe Lu"
 output:
   pdf_document: default
+urlcolor: blue
 ---
 **Project Repository Link:** <https://github.com/625group/625finalproject/tree/main>
 
