@@ -56,7 +56,7 @@ To determine the best model we assessed the accuracy, sensitivity, specificity, 
 It is clear from our results that our naive bayes is the weakest model of the three; it is neither the fastest model, nor excels at any metric we were assessing besides specificity. The similar AUC scores between our logistic regression model and neural network suggests that they are comparable in terms of classification ability. If classification is the bottom line, then logistic regression would prove to be the better model due to a significantly lower average run time. However, the two models drastically differ in their sensitivity and specificity rates as mentioned above. If correctly predicting a suspect will get caught after committing a crime has more value than correctly predicting a suspect won’t get caught, then the neural network could be the best option.
 
 ```{r, out.width = "400px", echo = FALSE}
-#knitr::include_graphics("/Users/zoelu/Downloads/auc_bar.png")
+knitr::include_graphics("/Users/zoelu/Downloads/auc_bar.png")
 ```
 
 # Conclusions and Limitations
